@@ -1,154 +1,168 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
-<title>走行評価ロガー シンプル</title>
+<title>評価ログ Simple</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <style>
-/* Layout: one-column cockpit. Sticky status bar, big tap targets (step 1 → 2 → 3), then the log table. */
+/* Calm, card-based layout: one ink-coloured primary action, category colour only as accents. */
 :root {
-  --bg: #eef1f3; --panel: #ffffff; --fg: #15202b; --muted: #5b6875; --line: #d3dae0;
-  --accent: #0a6c8a; --accent-ink: #ffffff;
-  --safe: #c62f2f; --comf: #1f7a6d; --oth: #4f5d6b; --good: #1d7a46; --bad-c: #b3261e;
-  --ok: #1d7a46; --warn: #b26b00; --bad: #b3261e;
-  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --bg: #f4f3ef; --card: #ffffff; --fg: #141414; --muted: #8b8a85; --soft: #efeeea; --line: #e6e4de;
+  --ink: #141414; --ink-fg: #ffffff;
+  --safe: #e5484d; --comf: #12a594; --oth: #7c7b86; --good: #2f9e5f; --bad-c: #e5484d;
+  --ok: #2f9e5f; --warn: #e2a336; --bad: #e5484d;
+  --shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .06);
+  --font-body: "Inter", "Noto Sans JP", "Hiragino Sans", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
-  --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --comf: #3cb8a6; --oth: #7d8d9c; --good: #4cc17f; --bad-c: #ef5a5a;
-  --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark } }
+  --bg: #0d0d0f; --card: #18181b; --fg: #f2f2f0; --muted: #8e8e93; --soft: #232327; --line: #2a2a2f;
+  --ink: #f2f2f0; --ink-fg: #0d0d0f;
+  --safe: #ff6369; --comf: #2ec7b1; --oth: #a1a0ab; --good: #4cc38a; --bad-c: #ff6369;
+  --shadow: 0 1px 0 rgb(255 255 255 / .03) inset; color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
-  --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --comf: #3cb8a6; --oth: #7d8d9c; --good: #4cc17f; --bad-c: #ef5a5a;
-  --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark }
+  --bg: #0d0d0f; --card: #18181b; --fg: #f2f2f0; --muted: #8e8e93; --soft: #232327; --line: #2a2a2f;
+  --ink: #f2f2f0; --ink-fg: #0d0d0f;
+  --safe: #ff6369; --comf: #2ec7b1; --oth: #a1a0ab; --good: #4cc38a; --bad-c: #ff6369;
+  --shadow: 0 1px 0 rgb(255 255 255 / .03) inset; color-scheme: dark }
 * { box-sizing: border-box }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
-  -webkit-tap-highlight-color: transparent }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel) }
-.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 88px; display: grid; gap: 16px }
-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px }
-header .in { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px }
-h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin-right: auto }
-.clock { font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums }
-.gps { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted) }
-.gps[data-s="ok"] .dot { background: var(--ok) } .gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
-.wrap > * { min-width: 0 }
-.label { font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px }
-section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px }
-.grid { display: grid; gap: 10px }
-.g3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
-.g5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
-.g2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
-.gs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px }
-#scenes .opt { min-height: 40px; font-size: 14px; font-weight: 500; border-radius: 99px; padding: 4px 8px }
-#scenes .more { min-height: 40px; font-size: 14px; border-radius: 99px; border-style: dashed; color: var(--muted); background: transparent }
-#memo { display: block; margin-top: 12px }
-.actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px }
-.actions .btn { min-height: 52px; font-size: 16px }
-.tools { gap: 4px }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45; letter-spacing: .01em;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent }
+html:lang(zh-CN) body { font-family: "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0 }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0) }
-button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
-.in2 { max-width: 860px; margin: 8px auto 0 }
-#car { min-height: 38px; padding: 6px 10px; flex: 1 1 auto; min-width: 0 }
-.cat { min-height: 80px; font-size: 20px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
-.cat small { display: none }
-.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="comf"] { background: var(--comf) } .cat[data-c="oth"] { background: var(--oth) }
-:root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
+
+/* header */
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)) }
+header > * { max-width: 640px; margin-inline: auto }
+.top { display: flex; align-items: center; gap: 10px }
+h1 { font-size: 13px; font-weight: 600; margin: 0 auto 0 0; color: var(--muted); letter-spacing: .04em }
+h1 b { color: var(--fg); font-weight: 700 }
+.gps { display: inline-flex }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 0%, transparent) }
+.gps[data-s="ok"] .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent) }
+.gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
+.clock { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em }
+.langbtn { font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-radius: 99px; background: var(--soft); min-height: 30px }
+#car { display: block; width: 100%; margin-top: 10px; font-family: inherit; color: var(--fg); border: 0; background: var(--soft); border-radius: 12px; padding: 10px 14px; min-height: 42px; font-size: 14px }
+
+/* categories */
+#cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px }
+.cat { --c: var(--oth); position: relative; min-height: 84px; border-radius: 18px; padding: 12px; text-align: left; display: flex; flex-direction: column; justify-content: space-between;
+  background: var(--card); box-shadow: var(--shadow); transition: transform .12s, background .15s, color .15s }
+.cat[data-c="safe"] { --c: var(--safe) } .cat[data-c="comf"] { --c: var(--comf) } .cat[data-c="oth"] { --c: var(--oth) }
+.cat::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c) }
+.cat b { font-size: 17px; font-weight: 700; line-height: 1.2 }
+.cat small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px }
+.cat.on { background: var(--c); color: #fff } .cat.on::before { background: #fff } .cat.on small { color: rgb(255 255 255 / .8) }
 .cat:active { transform: scale(.97) }
-.cat .nb { display: none }
-.opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
-.opt.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
-#subs .opt { min-height: 76px; font-size: 22px; font-weight: 700 }
-#subs .opt[data-v="👍 Good"].sel { background: var(--good); border-color: var(--good); color: #fff }
-#subs .opt[data-v="👎 Bad"].sel { background: var(--bad-c); border-color: var(--bad-c); color: #fff }
-.cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
-.cur b { font-size: 17px }
-.chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff }
-.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="comf"] { background: var(--comf) } .chip[data-c="oth"] { background: var(--oth) }
-.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
-.btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
-.btn.sm { padding: 6px 12px; min-height: 36px; font-size: 13px }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
-.btn.danger { color: var(--bad); border-color: var(--bad) }
-.btn.ghost { background: transparent }
-input[type=text], select { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 44px; width: 100% }
-.memo { flex: 1 1 220px; min-width: 0 }
-.step + .step { margin-top: 14px }
-.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel) }
-table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap }
-th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left }
-th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0 }
-td.num { font-family: var(--font-mono); font-size: 12px }
-td.memo-c { white-space: normal; min-width: 140px }
-tr.pending td { background: color-mix(in srgb, var(--warn) 12%, transparent) }
-td a { color: var(--accent) }
-.act button { padding: 6px 10px; font-size: 12px; min-height: 34px }
-.empty { padding: 24px; text-align: center; color: var(--muted) }
-.toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px) }
-.modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
-.modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
+
+.wrap { max-width: 640px; margin: 0 auto; padding: 6px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 22px }
+.wrap > * { min-width: 0 }
+.card { background: var(--card); border-radius: 22px; padding: 16px; box-shadow: var(--shadow) }
+
+/* entry sheet */
+.cur { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px }
+.cur .tag { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px }
+.cur .tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c) }
+.cur time { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted) }
+.cur .no { margin-left: auto; font-size: 12px; color: var(--muted) }
+#subs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--soft); border-radius: 16px }
+#subs .opt { min-height: 60px; border-radius: 12px; font-size: 18px; font-weight: 700; color: var(--muted); transition: background .15s, color .15s }
+#subs .opt.sel { background: var(--card); color: var(--fg); box-shadow: var(--shadow) }
+#subs .opt[data-v="👍 Good"].sel { color: var(--good) } #subs .opt[data-v="👎 Bad"].sel { color: var(--bad-c) }
+#memo { display: block; width: 100%; margin-top: 10px; border: 0; background: var(--soft); border-radius: 14px; padding: 12px 14px; min-height: 46px; font: inherit; color: var(--fg) }
+.label { font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--muted); margin: 16px 0 8px }
+#scenes { display: flex; flex-wrap: wrap; gap: 6px }
+#scenes button { min-height: 36px; padding: 0 14px; border-radius: 99px; font-size: 13px; font-weight: 500; background: var(--soft); color: var(--fg) }
+#scenes .opt.sel { background: var(--ink); color: var(--ink-fg) }
+#scenes .more { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line) }
+.actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 18px }
+.btn { min-height: 44px; padding: 0 18px; border-radius: 99px; font-weight: 600; font-size: 14px }
+.btn.primary { background: var(--ink); color: var(--ink-fg) }
+.btn.ghost { color: var(--muted) }
+.btn.soft { background: var(--soft) }
+.btn.danger { color: var(--bad) }
+.actions .btn { min-height: 52px; font-size: 16px }
+.btn.sm { min-height: 34px; padding: 0 12px; font-size: 13px }
+
+/* log */
+.loghead { display: flex; align-items: center; gap: 4px; margin-bottom: 10px }
+.loghead h2 { font-size: 20px; font-weight: 700; margin: 0 auto 0 4px; letter-spacing: -.01em }
+.loghead #count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 8px }
+.list { display: grid; gap: 8px }
+.item { --c: var(--oth); display: grid; grid-template-columns: 4px 1fr auto; gap: 12px; align-items: center; background: var(--card); border-radius: 16px; padding: 12px 12px 12px 10px; box-shadow: var(--shadow) }
+.item[data-c="safe"] { --c: var(--safe) } .item[data-c="comf"] { --c: var(--comf) }
+.item .bar { align-self: stretch; border-radius: 4px; background: var(--c) }
+.item .main { min-width: 0 }
+.item .l1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
+.item .l1 b { font-size: 15px }
+.item .rate { font-size: 13px; font-weight: 600 }
+.item .rate[data-v="👍 Good"] { color: var(--good) } .item .rate[data-v="👎 Bad"] { color: var(--bad-c) } .item .rate:empty::before { content: "—"; color: var(--muted) }
+.item time { font-variant-numeric: tabular-nums }
+.item .l2 { font-size: 13px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere }
+.item .side { display: flex; gap: 2px }
+.item .side a, .item .side button { font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px; border-radius: 10px; text-decoration: none; min-height: 34px; display: inline-flex; align-items: center }
+.item .side a { color: var(--fg) }
+.item.pending { box-shadow: var(--shadow), inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 70%, transparent) }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; border-radius: 16px; border: 1.5px dashed var(--line) }
+
+/* overlays */
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--ink-fg); padding: 10px 18px; border-radius: 99px; font-weight: 600; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); box-shadow: var(--shadow) }
+.modal { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .4); display: grid; place-items: center; padding: 16px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px) }
+.modal .box { background: var(--card); border-radius: 22px; padding: 20px; width: min(420px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
 .modal .box > .btn { width: 100% }
+.modal .btn:not(.primary):not(.ghost):not(.danger) { background: var(--soft) }
+.modal .btn.danger { background: var(--bad); color: #fff }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
-textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px }
-.langbtn { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20;
-  min-height: 44px; padding: 0 16px; border-radius: 99px; font-weight: 700; background: var(--panel); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 2px 10px color-mix(in srgb, #000 18%, transparent) }
-html:lang(zh-CN) body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", system-ui, sans-serif }
-.note { font-size: 12px; color: var(--muted); margin: 0 }
-textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
-@media (max-width: 420px) { .cat { min-height: 72px; font-size: 17px; padding: 4px } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
-@media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
+.modal input[type=text], .modal select { font: inherit; color: var(--fg); background: var(--soft); border: 0; border-radius: 12px; padding: 10px 12px; min-height: 44px; width: 100% }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.note { font-size: 13px; color: var(--muted); margin: 0 }
+textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--fg); background: var(--soft); border: 0; border-radius: 12px; padding: 10px }
+@media (max-width: 360px) { .cat { min-height: 76px; padding: 10px } .cat b { font-size: 15px } .clock { font-size: 19px } }
+@media (prefers-reduced-motion: reduce) { .cat, #subs .opt { transition: none } .cat:active { transform: none } }
 </style>
 
 </head><body>
-<header><div class="in">
-  <h1 data-zh="行驶评价记录（简易版）">走行評価ロガー（シンプル）</h1>
-  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText" class="sr"></span></span>
-  <span class="clock" id="clock">--:--:--</span>
-</div>
-<div class="in2"><input type="text" id="car" placeholder="車名" data-zh-ph="车名" autocomplete="off" aria-label="車名"></div>
-<div class="in2" id="stepCat">
-  <div class="grid g3" id="cats"></div>
-</div></header>
+<header>
+  <div class="top">
+    <h1><b data-zh="评价记录">評価ログ</b> · Simple</h1>
+    <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText" class="sr"></span></span>
+    <span class="clock" id="clock">--:--:--</span>
+    <button class="langbtn" id="lang" type="button" aria-label="言語切替 / 切换语言"></button>
+  </div>
+  <input type="text" id="car" placeholder="車名" data-zh-ph="车名" autocomplete="off" aria-label="車名">
+  <div id="cats"></div>
+</header>
 
 <div class="wrap">
 
-  <section class="panel" id="stepDetail" hidden>
+  <section class="card" id="stepDetail" hidden>
     <div class="cur" id="curInfo"></div>
-    <div class="grid g2" id="subs"></div>
-    <input type="text" id="memo" class="step" placeholder="コメント（任意）" data-zh-ph="备注（可选）" autocomplete="off" aria-label="コメント">
-    <div class="step">
-      <p class="label" data-zh="场景（可选）">シーン（任意）</p>
-      <div class="grid gs" id="scenes"></div>
-    </div>
-    <div class="step actions">
+    <div id="subs"></div>
+    <input type="text" id="memo" placeholder="コメント（任意）" data-zh-ph="备注（可选）" autocomplete="off" aria-label="コメント">
+    <p class="label" data-zh="场景（可选）">シーン（任意）</p>
+    <div id="scenes"></div>
+    <div class="actions">
       <button class="btn ghost" id="cancel" data-zh="取消">取消</button>
       <button class="btn primary" id="done" data-zh="确认记录">記録する</button>
     </div>
   </section>
 
   <section id="logView">
-    <div class="row" style="justify-content:space-between;margin-bottom:8px">
-      <p class="label" style="margin:0"><span data-zh="记录">記録</span> <span id="count"></span></p>
-      <div class="row tools">
-        <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
-        <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
-        <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
-      </div>
+    <div class="loghead">
+      <h2><span data-zh="记录">記録</span><span id="count"></span></h2>
+      <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
+      <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
+      <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
     </div>
-    <div class="tablebox"><table>
-      <thead><tr><th>No</th><th data-zh="时间">時刻</th><th data-zh="分类">分類</th><th data-zh="评价">評価</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">コメント</th><th></th></tr></thead>
-      <tbody id="tbody"></tbody>
-    </table></div>
+    <div class="list" id="tbody"></div>
   </section>
 
   <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
 </div>
 
-<button class="langbtn" id="lang" type="button" aria-label="言語切替 / 切换语言"></button>
 <div class="modal" id="modal" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -156,9 +170,9 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 // Simple mode: three categories, each rated Good / Bad; scene and comment are optional
 const RATES = ["👍 Good", "👎 Bad"];
 const CATS = [
-  { id: "safe", name: "安全・安心", subs: RATES },
-  { id: "comf", name: "快適", subs: RATES },
-  { id: "oth",  name: "その他", subs: RATES },
+  { id: "safe", name: "安全・安心", en: "Safety", subs: RATES },
+  { id: "comf", name: "快適", en: "Comfort", subs: RATES },
+  { id: "oth",  name: "その他", en: "Other", subs: RATES },
 ];
 const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビLC", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
 // scene names used by earlier versions, mapped to their current names
@@ -242,7 +256,7 @@ function baiduUrl(r) {
   // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
   return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
 }
-const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">${tr("Baidu地図", "百度地图")}</a>`;
+const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">${tr("地図", "地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- language ---- */
@@ -295,7 +309,7 @@ function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +
 /* ---- step 1: category ---- */
 function renderCats() {
   $("cats").setAttribute("aria-label", tr("① イベント分類（押した時刻と位置を記録）", "① 事件分类（记录按下时的时间和位置）"));
-  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}">${esc(L(c.name))}</button>`).join("");
+  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}"><span><b>${esc(L(c.name))}</b><small>${c.en}</small></span></button>`).join("");
 }
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
@@ -320,10 +334,12 @@ const optBtns = (list, cur) => list.map(s => `<button class="opt${cur === s ? " 
 // scrollToTop: only when the panel opens; picking options must not jump the page back up
 function openDetail(scrollToTop = false) {
   const r = draft;
+  document.querySelectorAll(".cat").forEach(b => b.classList.toggle("on", !!r && b.dataset.c === r.cat));
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1}</span>`;
+  $("curInfo").style.setProperty("--c", `var(--${c.id})`);
+  $("curInfo").innerHTML = `<span class="tag">${esc(L(c.name))}</span><time>${fmtTime(r.t)}</time><span class="no">No.${records.length + 1}</span>`;
   $("subs").innerHTML = optBtns(c.subs, r.sub);
   // only the first few scenes until "more" is pressed, so the confirm button stays on one screen
   // (a chosen scene further down stays visible)
@@ -355,29 +371,26 @@ $("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").va
 function finish() {
   if (!draft) return;
   records.push(draft); save(); draft = null;
-  $("stepDetail").hidden = true; toast(tr("記録しました", "已记录")); renderTable();
+  openDetail(); toast(tr("記録しました", "已记录")); renderTable();
 }
 $("done").addEventListener("click", finish);
-$("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast(tr("取り消しました", "已取消")) });
+$("cancel").addEventListener("click", () => { draft = null; openDetail(); toast(tr("取り消しました", "已取消")) });
 
 /* ---- table ---- */
 function renderTable() {
-  $("count").textContent = records.length ? tr(`（${records.length}件）`, `（${records.length}条）`) : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="8" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
+  $("count").textContent = records.length ? tr(`${records.length}件`, `${records.length}条`) : "";
+  if (!records.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。上の分類を押すと、その時刻と位置で記録が始まります。", "还没有记录。按上方的分类，即以当时的时间和位置开始记录。")}</p>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
-    const c = catOf(r.cat), pending = !r.sub;
-    const map = r.lat != null ? mapLinks(r) : "—";
-    return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
-      <td class="num">${i + 1}</td><td class="num">${fmtTime(r.t)}</td>
-      <td><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span></td><td>${esc(L(r.sub)) || "—"}</td><td>${esc(L(r.scene)) || "—"}</td>
-      <td>${map}</td>
-      <td class="memo-c">${esc(r.memo)}</td>
-      <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button></div></td></tr>`;
-  }).join("");
+    const c = catOf(r.cat), sub = [L(r.scene), r.memo].filter(Boolean).map(esc).join(" · ");
+    return `<div class="item${r.sub ? "" : " pending"}" data-c="${c.id}" data-id="${r.id}"><span class="bar"></span>
+      <div class="main"><div class="l1"><b>${esc(L(c.name))}</b><span class="rate" data-v="${esc(r.sub)}">${esc(L(r.sub))}</span></div>
+        <div class="l2"><time>${fmtTime(r.t)}</time> · No.${i + 1}${sub ? " · " + sub : ""}</div></div>
+      <div class="side">${r.lat != null ? mapLinks(r) : ""}<button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button></div></div>`;
+  }).reverse().join("");
 }
 $("tbody").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
-  const id = b.closest("tr").dataset.id;
+  const id = b.closest("[data-id]").dataset.id;
   if (b.dataset.a === "edit") editModal(id);
   else confirmModal(tr("この記録を削除しますか？", "要删除这条记录吗？"), () => { records = records.filter(x => x.id !== id); save(); renderTable() });
 });
