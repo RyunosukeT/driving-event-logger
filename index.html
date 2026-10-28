@@ -319,7 +319,7 @@ function openDetail(scrollToTop = false) {
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${mapLinks(r)}` : "· " + tr("位置取得中…", "正在获取位置…")}</span>`;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1}</span>`;
   $("subs").innerHTML = optBtns(c.subs, r.sub);
   $("scenes").innerHTML = optBtns(SCENES, r.scene);
   $("memo").value = r.memo || "";
