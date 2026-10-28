@@ -42,26 +42,17 @@ section.panel { background: var(--panel); border: 1px solid var(--line); border-
 .g3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
 .g5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
 .g2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
-.gs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)) }
+.gs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px }
+#scenes .opt { min-height: 40px; font-size: 14px; font-weight: 500; border-radius: 99px; padding: 4px 8px }
+#memo { display: block; margin-top: 12px }
+.actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px }
+.actions .btn { min-height: 52px; font-size: 16px }
+.tools { gap: 4px }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0) }
 button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
 .in2 { max-width: 860px; margin: 8px auto 0 }
 #car { min-height: 38px; padding: 6px 10px; flex: 1 1 auto; min-width: 0 }
-.carrow { display: flex; gap: 8px; align-items: stretch }
-.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none }
-.tabs button { border: 0; border-radius: 0; padding: 0 14px; font-weight: 600; min-height: 38px; background: var(--panel); color: var(--muted) }
-.tabs button.on { background: var(--accent); color: var(--accent-ink) }
-#sumView .grid > * { min-width: 0 }
-.filters { display: flex; flex-wrap: wrap; gap: 10px }
-.filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; flex: 1 1 160px; min-width: 0 }
-.sumhead { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 10px }
-.sumhead .label { margin: 0 }
-table.sum td.n, table.sum th.n { text-align: right; font-family: var(--font-mono); font-size: 12px }
-table.sum td.z { color: var(--muted) }
-table.sum th.grp { text-align: center; border-left: 1px solid var(--line) }
-table.sum .bl { border-left: 1px solid var(--line) }
-table.sum tr.total td { font-weight: 700; background: var(--bg) }
-table.sum td.t, table.sum th.t { font-weight: 700 }
 .cat { min-height: 80px; font-size: 20px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: none }
 .cat[data-c="safe"] { background: var(--safe) } .cat[data-c="comf"] { background: var(--comf) } .cat[data-c="oth"] { background: var(--oth) }
@@ -114,11 +105,10 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 </head><body>
 <header><div class="in">
   <h1 data-zh="行驶评价记录（简易版）">走行評価ロガー（シンプル）</h1>
-  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText"></span></span>
+  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText" class="sr"></span></span>
   <span class="clock" id="clock">--:--:--</span>
 </div>
-<div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" data-zh-ph="车名（附加到之后的记录）" autocomplete="off" aria-label="車名">
-  <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true" data-zh="记录">記録</button><button data-v="sum" aria-pressed="false" data-zh="统计">集計</button></nav></div>
+<div class="in2"><input type="text" id="car" placeholder="車名" data-zh-ph="车名" autocomplete="off" aria-label="車名"></div>
 <div class="in2" id="stepCat">
   <div class="grid g3" id="cats"></div>
 </div></header>
@@ -127,53 +117,33 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 
   <section class="panel" id="stepDetail" hidden>
     <div class="cur" id="curInfo"></div>
+    <div class="grid g2" id="subs"></div>
+    <input type="text" id="memo" class="step" placeholder="コメント（任意）" data-zh-ph="备注（可选）" autocomplete="off" aria-label="コメント">
     <div class="step">
-      <p class="label" data-zh="② 评价">② 評価</p>
-      <div class="grid g2" id="subs"></div>
-    </div>
-    <div class="step" id="stepScene">
-      <p class="label" data-zh="③ 场景（可选）">③ シーン（任意）</p>
+      <p class="label" data-zh="场景（可选）">シーン（任意）</p>
       <div class="grid gs" id="scenes"></div>
     </div>
-    <div class="step row">
-      <input type="text" id="memo" class="memo" placeholder="コメント（任意）" data-zh-ph="备注（可选）" autocomplete="off">
-      <button class="btn primary" id="done" data-zh="确认记录">記録を確定</button>
-      <button class="btn danger ghost" id="cancel" data-zh="取消">取り消す</button>
+    <div class="step actions">
+      <button class="btn ghost" id="cancel" data-zh="取消">取消</button>
+      <button class="btn primary" id="done" data-zh="确认记录">記録する</button>
     </div>
-    <p class="note" style="margin-top:10px" data-zh="按下「确认记录」之前不会保存。未确认就切换分类按钮或标签页时，正在输入的内容会被丢弃。">「記録を確定」を押すまでは記録されません。確定せずに分類ボタンやタブを切り替えると、入力中の内容は破棄されます。</p>
   </section>
 
   <section id="logView">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
-      <p class="label" style="margin:0"><span data-zh="记录列表">記録一覧</span> <span id="count"></span></p>
-      <div class="row">
-        <button class="btn primary" id="copy" data-zh="导出">エクスポート</button>
-        <button class="btn sm" id="import" data-zh="导入">取込</button>
-        <button class="btn danger ghost" id="clearAll" data-zh="全部删除">全削除</button>
+      <p class="label" style="margin:0"><span data-zh="记录">記録</span> <span id="count"></span></p>
+      <div class="row tools">
+        <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
+        <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
+        <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
       </div>
     </div>
     <div class="tablebox"><table>
-      <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="评价">評価</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">コメント</th><th></th></tr></thead>
+      <thead><tr><th>No</th><th data-zh="时间">時刻</th><th data-zh="分类">分類</th><th data-zh="评价">評価</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">コメント</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
   </section>
 
-  <section id="sumView" hidden>
-    <div class="grid" style="gap:16px">
-      <div class="filters">
-        <label><span data-zh="日期">日付</span><select id="fDate"></select></label>
-        <label><span data-zh="车名">車名</span><select id="fCar"></select></label>
-      </div>
-      <section class="panel">
-        <div class="sumhead"><p class="label"><span data-zh="按日期・车名统计">日付・車名別の件数</span> <span id="sumCount"></span></p><button class="btn primary" id="copySum1" data-zh="复制表格">表をコピー</button></div>
-        <div class="tablebox"><table class="sum" id="sum1"></table></div>
-      </section>
-      <section class="panel">
-        <div class="sumhead"><p class="label" data-zh="按场景统计">シーン別の件数</p><button class="btn primary" id="copySum2" data-zh="复制表格">表をコピー</button></div>
-        <div class="tablebox"><table class="sum" id="sum2"></table></div>
-      </section>
-    </div>
-  </section>
   <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
 </div>
 
@@ -379,14 +349,13 @@ $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidd
 
 /* ---- table ---- */
 function renderTable() {
-  renderSummary();
   $("count").textContent = records.length ? tr(`（${records.length}件）`, `（${records.length}条）`) : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="10" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="8" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub;
     const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
-      <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
+      <td class="num">${i + 1}</td><td class="num">${fmtTime(r.t)}</td>
       <td><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span></td><td>${esc(L(r.sub)) || "—"}</td><td>${esc(L(r.scene)) || "—"}</td>
       <td>${map}</td>
       <td class="memo-c">${esc(r.memo)}</td>
@@ -454,9 +423,9 @@ $("copy").addEventListener("click", () => {
   if (!records.length) { toast(tr("記録がありません", "没有记录")); return }
   $("modal").innerHTML = `<div class="box">
     <b>${tr("エクスポート", "导出")}</b>
-    <p class="note">${tr(`${records.length}件の記録を出力します。Excelファイルには「記録」「日付・車名別」「シーン別」の3シートが入ります。`, `导出${records.length}条记录。Excel文件包含「记录」「按日期・车名」「按场景」3个工作表。`)}</p>
+    <p class="note">${tr(`${records.length}件の記録を出力します。`, `导出${records.length}条记录。`)}</p>
     <button class="btn primary" id="exXlsx">${tr("Excelファイルをダウンロード", "下载Excel文件")}</button>
-    <button class="btn" id="exCopy">${tr("クリップボードにコピー（記録の表）", "复制到剪贴板（记录表）")}</button>
+    <button class="btn" id="exCopy">${tr("クリップボードにコピー", "复制到剪贴板")}</button>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="exNo">${tr("閉じる", "关闭")}</button></div></div>`;
   $("modal").hidden = false;
   $("exNo").onclick = closeModal;
@@ -464,73 +433,7 @@ $("copy").addEventListener("click", () => {
   $("exXlsx").onclick = () => { closeModal(); downloadXlsx() };
 });
 
-/* ---- summary view ---- */
-// placeholder keys for empty values; shown through noneLabel()
-const NOCAR = "\u0000car", NOSCENE = "\u0000scene";
-const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
-// columns: per category a total plus one per subtype
-const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null }, ...c.subs.map(s => ({ cat: c.id, sub: s }))]);
-const colLabel = (col) => col.sub == null ? tr("計", "合计") : L(col.sub);
-const colHead = (col) => L(catOf(col.cat).name) + " " + colLabel(col);
-const countCols = (list) => COLS.map(col => list.filter(r => r.cat === col.cat && (col.sub == null || r.sub === col.sub)).length);
-const uniq = (a) => [...new Set(a)];
-function setOptions(sel, values, allLabel) {
-  const prev = sel.value;
-  sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${esc(v)}">${esc(noneLabel(v))}</option>`).join("");
-  sel.value = values.includes(prev) ? prev : "";
-}
-function filtered() {
-  const d = $("fDate").value, c = $("fCar").value;
-  return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c));
-}
-function sumHead(firstCols) {
-  const lead = firstCols.map(h => `<th rowspan="2">${h}</th>`).join("");
-  return `<thead><tr>${lead}<th rowspan="2" class="n t">${tr("合計", "总计")}</th>${CATS.map(c => `<th class="grp" colspan="${c.subs.length + 1}">${esc(L(c.name))}</th>`).join("")}</tr>
-    <tr>${COLS.map(col => `<th class="n${col.sub == null ? " bl t" : ""}">${esc(colLabel(col))}</th>`).join("")}</tr></thead>`;
-}
-const cell = (n, cls = "") => `<td class="n${n ? "" : " z"}${cls}">${n}</td>`;
-function sumRow(lead, list, cls = "") {
-  return `<tr class="${cls}">${lead.map(v => `<td>${esc(v)}</td>`).join("")}${cell(list.length, " t")}${countCols(list).map((n, i) => cell(n, COLS[i].sub == null ? " bl t" : "")).join("")}</tr>`;
-}
-function groups(list = filtered()) {
-  const keys = uniq(list.map(r => fmtDate(r.t) + "\u0001" + (r.car || NOCAR))).sort();
-  return { list, rows: keys.map(k => { const [d, c] = k.split("\u0001"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
-}
-function sceneGroups(list) {
-  return [...SCENES, NOSCENE].map(s => ({ s, items: list.filter(r => (r.scene || NOSCENE) === s) })).filter(g => g.s !== NOSCENE || g.items.length);
-}
-function renderSummary() {
-  if ($("sumView").hidden) return;
-  setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), tr("すべての日付", "全部日期"));
-  setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), tr("すべての車", "全部车辆"));
-  const { list, rows } = groups();
-  $("sumCount").textContent = tr(`（${list.length}件）`, `（${list.length}条）`);
-  if (!list.length) {
-    const msg = `<tbody><tr><td class="empty">${tr("集計する記録がありません。「記録」タブで記録すると、日付と車名ごとにここへ集計されます。", "没有可统计的记录。在「记录」标签页记录后，会按日期和车名在此统计。")}</td></tr></tbody>`;
-    $("sum1").innerHTML = msg; $("sum2").innerHTML = msg; return;
-  }
-  const total = tr("合計", "总计");
-  $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d, noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>";
-  $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], list, "total") + "</tbody>";
-}
 const tsvLine = (a) => a.map(cellText).join("\t");
-const tsvCounts = (list) => [list.length, ...countCols(list)];
-function sum1Rows(list) {
-  const { rows } = groups(list);
-  return [[tr("日付", "日期"), tr("車名", "车名"), tr("合計", "总计"), ...COLS.map(colHead)], ...rows.map(g => [g.d, noneLabel(g.c), ...tsvCounts(g.items)]), [tr("合計", "总计"), "", ...tsvCounts(list)]];
-}
-function sum2Rows(list) {
-  return [[tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)], ...sceneGroups(list).map(g => [noneLabel(g.s), ...tsvCounts(g.items)]), [tr("合計", "总计"), ...tsvCounts(list)]];
-}
-$("copySum1").addEventListener("click", () => {
-  const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
-  copyText(toTsv(sum1Rows(list)), tr("日付・車名別の集計をコピーしました", "已复制按日期・车名统计"));
-});
-$("copySum2").addEventListener("click", () => {
-  const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
-  copyText(toTsv(sum2Rows(list)), tr("シーン別の集計をコピーしました", "已复制按场景统计"));
-});
-
 /* ---- Excel (.xlsx) export: written by hand (stored ZIP + SpreadsheetML) so no library has to load ---- */
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 });
 function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0 }
@@ -573,12 +476,7 @@ function buildXlsx(sheets) { // sheets: [{name, rows, widths}]
   ]);
 }
 function downloadXlsx() {
-  const sumW = [12, 12, 8, ...COLS.map(() => 12)];
-  const data = buildXlsx([
-    { name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 12, 16, 30, 40] },
-    { name: tr("日付・車名別", "按日期・车名"), rows: sum1Rows(records), widths: sumW },
-    { name: tr("シーン別", "按场景"), rows: sum2Rows(records), widths: sumW.slice(1) },
-  ]);
+  const data = buildXlsx([{ name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 12, 16, 30, 40] }]);
   const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -587,22 +485,6 @@ function downloadXlsx() {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
 }
-$("fDate").addEventListener("change", renderSummary);
-$("fCar").addEventListener("change", renderSummary);
-
-/* ---- tabs ---- */
-function showView(v) {
-  const sum = v === "sum";
-  $("sumView").hidden = !sum; $("logView").hidden = sum; $("stepCat").hidden = sum;
-  draft = null; // switching views drops an unconfirmed record
-  $("stepDetail").hidden = true;
-  $("fallback").hidden = true;
-  document.querySelectorAll("#tabs button").forEach(b => { const on = b.dataset.v === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on) });
-  if (sum) renderSummary();
-  scrollTo({ top: 0 });
-}
-$("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
-
 /* ---- import pasted TSV (表をコピー format in either language; matched by header name) ---- */
 function parseImport(text) {
   const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
