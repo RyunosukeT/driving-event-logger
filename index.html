@@ -221,7 +221,7 @@ const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
 const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/detail/road/scene names
 
 let records = load();
-records.forEach(r => { if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene]; if (SUB_RENAMES[r.sub]) r.sub = SUB_RENAMES[r.sub] });
+records.forEach(r => { delete r.acc; delete r.lag; if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene]; if (SUB_RENAMES[r.sub]) r.sub = SUB_RENAMES[r.sub] });
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
@@ -233,8 +233,8 @@ const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${p
 const catOf = (id) => CATS.find(c => c.id === id);
 // Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
 // (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
-function wgsToBd(lat, lon) {
-  if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271) return null;
+const inChina = (lat, lon) => !(lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271);
+function wgsToGcj(lat, lon) {
   const a = 6378245.0, ee = 0.00669342162296594323, PI = Math.PI, x = lon - 105, y = lat - 35;
   let dLat = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x))
     + (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3
@@ -247,9 +247,29 @@ function wgsToBd(lat, lon) {
   const rad = lat / 180 * PI, m = 1 - ee * Math.sin(rad) ** 2, sm = Math.sqrt(m);
   const gLat = lat + dLat * 180 / ((a * (1 - ee)) / (m * sm) * PI);
   const gLon = lon + dLon * 180 / (a / sm * Math.cos(rad) * PI);
+  return { lat: gLat, lon: gLon };
+}
+function wgsToBd(lat, lon) {
+  if (!inChina(lat, lon)) return null;
+  const { lat: gLat, lon: gLon } = wgsToGcj(lat, lon), PI = Math.PI;
   const X = PI * 3000 / 180, z = Math.sqrt(gLon * gLon + gLat * gLat) + 0.00002 * Math.sin(gLat * X);
   const th = Math.atan2(gLat, gLon) + 0.000003 * Math.cos(gLon * X);
   return { lat: +(z * Math.sin(th) + 0.006).toFixed(6), lon: +(z * Math.cos(th) + 0.0065).toFixed(6) };
+}
+// inverse for import: BD-09 → GCJ-02 exactly, then GCJ-02 → WGS84 by fixed-point iteration (sub-metre)
+function bdToWgs(lat, lon) {
+  const X = Math.PI * 3000 / 180, x = lon - 0.0065, y = lat - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X), th = Math.atan2(y, x) - 0.000003 * Math.cos(x * X);
+  const g = { lat: z * Math.sin(th), lon: z * Math.cos(th) };
+  let w = { ...g };
+  for (let i = 0; i < 10; i++) { const f = wgsToGcj(w.lat, w.lon); w = { lat: w.lat + g.lat - f.lat, lon: w.lon + g.lon - f.lon } }
+  return { lat: +w.lat.toFixed(7), lon: +w.lon.toFixed(7) };
+}
+// position from a copied Baidu link (the copy no longer carries latitude/longitude columns)
+function posFromBaidu(url) {
+  const m = String(url).match(/location=(-?[\d.]+),(-?[\d.]+)&coord_type=(\w+)/); if (!m) return null;
+  const lat = +m[1], lon = +m[2];
+  return m[3] === "bd09ll" ? bdToWgs(lat, lon) : { lat, lon };
 }
 function baiduUrl(r) {
   const bd = wgsToBd(r.lat, r.lon);
@@ -306,11 +326,8 @@ async function wake() { try { await navigator.wakeLock?.request("screen") } catc
 document.addEventListener("visibilitychange", () => { if (!document.hidden) wake() });
 wake();
 
-function applyFix(rec, p) {
-  rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7);
-  rec.acc = Math.round(p.coords.accuracy);
-  rec.lag = Math.round((p.timestamp - rec.t) / 100) / 10; // >0: fix came after tap, <0: before
-}
+// only the position is kept, for the Baidu map link
+function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7) }
 
 /* ---- step 1: category ---- */
 // names of 4+ characters break after the 2nd character on phones (交通/違反, 安全/T/O)
@@ -322,7 +339,7 @@ function renderCats() {
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
   const t = Date.now();
-  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", road: "", scene: "", memo: "", lat: null, lon: null, acc: null, lag: null };
+  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", road: "", scene: "", memo: "", lat: null, lon: null };
   if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
   else if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition((p) => {
@@ -433,11 +450,14 @@ $("clearAll").addEventListener("click", () => {
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
-  ["緯度", "纬度"], ["経度", "经度"], ["精度(m)", "精度(m)"], ["位置の遅れ(秒)", "定位延迟(秒)"], ["メモ", "备注"], ["Baidu地図", "百度地图"]];
+  ["メモ", "备注"], ["Baidu地図", "百度地图"],
+  // not in the copy any more; still read when importing older copies
+  ["緯度", "纬度"], ["経度", "经度"]];
+const COPY_COLS = 10;
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = HEAD.map(h => tr(h[0], h[1]));
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
+  const head = HEAD.slice(0, COPY_COLS).map(h => tr(h[0], h[1]));
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 async function copyText(text, okMsg) {
@@ -557,8 +577,8 @@ function parseImport(text) {
     const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
     const scene = ja(get("シーン"));
     const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: SUB_RENAMES[get("詳細")] || ja(get("詳細")), road: ja(get("道路")),
-      scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")), acc: num(get("精度(m)")), lag: num(get("位置の遅れ(秒)")) };
-    if (r.lat == null || r.lon == null) r.lat = r.lon = null;
+      scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")) };
+    if (r.lat == null || r.lon == null) { const pos = posFromBaidu(get("Baidu地図")); r.lat = pos?.lat ?? null; r.lon = pos?.lon ?? null }
     if (have.has(dupKey(r))) { dup++; return }
     have.add(dupKey(r)); ok.push(r);
   });
