@@ -44,7 +44,22 @@ section.panel { background: var(--panel); border: 1px solid var(--line); border-
 button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
 .in2 { max-width: 860px; margin: 8px auto 0 }
-#car { min-height: 38px; padding: 6px 10px }
+#car { min-height: 38px; padding: 6px 10px; flex: 1 1 auto; min-width: 0 }
+.carrow { display: flex; gap: 8px; align-items: stretch }
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none }
+.tabs button { border: 0; border-radius: 0; padding: 0 14px; font-weight: 600; min-height: 38px; background: var(--panel); color: var(--muted) }
+.tabs button.on { background: var(--accent); color: var(--accent-ink) }
+#sumView .grid > * { min-width: 0 }
+.filters { display: flex; flex-wrap: wrap; gap: 10px }
+.filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; flex: 1 1 160px; min-width: 0 }
+.sumhead { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 10px }
+.sumhead .label { margin: 0 }
+table.sum td.n, table.sum th.n { text-align: right; font-family: var(--font-mono); font-size: 12px }
+table.sum td.z { color: var(--muted) }
+table.sum th.grp { text-align: center; border-left: 1px solid var(--line) }
+table.sum .bl { border-left: 1px solid var(--line) }
+table.sum tr.total td { font-weight: 700; background: var(--bg) }
+table.sum td.t, table.sum th.t { font-weight: 700 }
 .cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
 .cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) }
@@ -90,7 +105,8 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText">位置情報 取得中…</span></span>
   <span class="clock" id="clock">--:--:--</span>
 </div>
-<div class="in2"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名"></div>
+<div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名">
+  <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true">記録</button><button data-v="sum" aria-pressed="false">集計</button></nav></div>
 <div class="in2" id="stepCat">
   <div class="grid g3" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
 </div></header>
@@ -115,7 +131,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
     <p class="note" style="margin-top:10px">②③を選ばずに次の分類を押しても、この記録は保存されたまま残ります（あとで表から編集できます）。</p>
   </section>
 
-  <section>
+  <section id="logView">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <p class="label" style="margin:0">記録一覧 <span id="count"></span></p>
       <div class="row">
@@ -127,8 +143,25 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>車名</th><th>分類</th><th>詳細</th><th>シーン</th><th>地図</th><th>緯度</th><th>経度</th><th>精度(m)</th><th>位置の遅れ(秒)</th><th>メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
-    <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
   </section>
+
+  <section id="sumView" hidden>
+    <div class="grid" style="gap:16px">
+      <div class="filters">
+        <label>日付<select id="fDate"></select></label>
+        <label>車名<select id="fCar"></select></label>
+      </div>
+      <section class="panel">
+        <div class="sumhead"><p class="label">日付・車名別の件数 <span id="sumCount"></span></p><button class="btn primary" id="copySum1">表をコピー</button></div>
+        <div class="tablebox"><table class="sum" id="sum1"></table></div>
+      </section>
+      <section class="panel">
+        <div class="sumhead"><p class="label">シーン別の件数</p><button class="btn primary" id="copySum2">表をコピー</button></div>
+        <div class="tablebox"><table class="sum" id="sum2"></table></div>
+      </section>
+    </div>
+  </section>
+  <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
 </div>
 
 <div class="modal" id="modal" hidden></div>
@@ -239,6 +272,7 @@ $("cancel").addEventListener("click", () => { records = records.filter(x => x.id
 
 /* ---- table ---- */
 function renderTable() {
+  renderSummary();
   $("count").textContent = records.length ? `（${records.length}件）` : "";
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="14" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
@@ -298,16 +332,90 @@ function tsv() {
   const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
-$("copy").addEventListener("click", async () => {
-  if (!records.length) { toast("記録がありません"); return }
-  const text = tsv();
-  try { await navigator.clipboard.writeText(text); $("fallback").hidden = true; toast(`${records.length}件をコピーしました。Excelに貼り付けできます`) }
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); $("fallback").hidden = true; toast(okMsg) }
   catch {
     const ta = $("fallback"); ta.value = text; ta.hidden = false; ta.focus(); ta.select();
     let ok = false; try { ok = document.execCommand("copy") } catch {}
     toast(ok ? "コピーしました" : "下の枠を選択してコピーしてください");
   }
+}
+$("copy").addEventListener("click", () => {
+  if (!records.length) { toast("記録がありません"); return }
+  copyText(tsv(), `${records.length}件をコピーしました。Excelに貼り付けできます`);
 });
+
+/* ---- summary view ---- */
+const NOCAR = "（車名なし）", NOSCENE = "（シーン未選択）";
+// columns: per category a total plus one per subtype
+const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null, label: "計", head: c.name + " 計" }, ...c.subs.map(s => ({ cat: c.id, sub: s, label: s, head: c.name + " " + s }))]);
+const countCols = (list) => COLS.map(col => list.filter(r => r.cat === col.cat && (col.sub == null || r.sub === col.sub)).length);
+const uniq = (a) => [...new Set(a)];
+function setOptions(sel, values, allLabel) {
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option>${esc(v)}</option>`).join("");
+  sel.value = values.includes(prev) ? prev : "";
+}
+function filtered() {
+  const d = $("fDate").value, c = $("fCar").value;
+  return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c));
+}
+function sumHead(firstCols) {
+  const lead = firstCols.map(h => `<th rowspan="2">${h}</th>`).join("");
+  return `<thead><tr>${lead}<th rowspan="2" class="n t">合計</th>${CATS.map(c => `<th class="grp" colspan="${c.subs.length + 1}">${c.name}</th>`).join("")}</tr>
+    <tr>${COLS.map(col => `<th class="n${col.sub == null ? " bl t" : ""}">${esc(col.label)}</th>`).join("")}</tr></thead>`;
+}
+const cell = (n, cls = "") => `<td class="n${n ? "" : " z"}${cls}">${n}</td>`;
+function sumRow(lead, list, cls = "") {
+  return `<tr class="${cls}">${lead.map(v => `<td>${esc(v)}</td>`).join("")}${cell(list.length, " t")}${countCols(list).map((n, i) => cell(n, COLS[i].sub == null ? " bl t" : "")).join("")}</tr>`;
+}
+function groups() {
+  const list = filtered();
+  const keys = uniq(list.map(r => fmtDate(r.t) + "\u0000" + (r.car || NOCAR))).sort();
+  return { list, rows: keys.map(k => { const [d, c] = k.split("\u0000"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
+}
+function sceneGroups(list) {
+  return [...SCENES, NOSCENE].map(s => ({ s, items: list.filter(r => (r.scene || NOSCENE) === s) })).filter(g => g.s !== NOSCENE || g.items.length);
+}
+function renderSummary() {
+  if ($("sumView").hidden) return;
+  setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), "すべての日付");
+  setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), "すべての車");
+  const { list, rows } = groups();
+  $("sumCount").textContent = `（${list.length}件）`;
+  if (!list.length) {
+    const msg = `<tbody><tr><td class="empty">集計する記録がありません。「記録」タブで記録すると、日付と車名ごとにここへ集計されます。</td></tr></tbody>`;
+    $("sum1").innerHTML = msg; $("sum2").innerHTML = msg; return;
+  }
+  $("sum1").innerHTML = sumHead(["日付", "車名"]) + "<tbody>" + rows.map(g => sumRow([g.d, g.c], g.items)).join("") + sumRow(["合計", ""], list, "total") + "</tbody>";
+  $("sum2").innerHTML = sumHead(["シーン"]) + "<tbody>" + sceneGroups(list).map(g => sumRow([g.s], g.items)).join("") + sumRow(["合計"], list, "total") + "</tbody>";
+}
+const tsvLine = (a) => a.map(v => String(v ?? "").replace(/[\t\r\n]+/g, " ")).join("\t");
+const tsvCounts = (list) => [list.length, ...countCols(list)];
+$("copySum1").addEventListener("click", () => {
+  const { list, rows } = groups(); if (!list.length) { toast("記録がありません"); return }
+  const lines = [tsvLine(["日付", "車名", "合計", ...COLS.map(c => c.head)]), ...rows.map(g => tsvLine([g.d, g.c, ...tsvCounts(g.items)])), tsvLine(["合計", "", ...tsvCounts(list)])];
+  copyText(lines.join("\n"), "日付・車名別の集計をコピーしました");
+});
+$("copySum2").addEventListener("click", () => {
+  const list = filtered(); if (!list.length) { toast("記録がありません"); return }
+  const lines = [tsvLine(["シーン", "合計", ...COLS.map(c => c.head)]), ...sceneGroups(list).map(g => tsvLine([g.s, ...tsvCounts(g.items)])), tsvLine(["合計", ...tsvCounts(list)])];
+  copyText(lines.join("\n"), "シーン別の集計をコピーしました");
+});
+$("fDate").addEventListener("change", renderSummary);
+$("fCar").addEventListener("change", renderSummary);
+
+/* ---- tabs ---- */
+function showView(v) {
+  const sum = v === "sum";
+  $("sumView").hidden = !sum; $("logView").hidden = sum; $("stepCat").hidden = sum;
+  $("stepDetail").hidden = sum || !current;
+  $("fallback").hidden = true;
+  document.querySelectorAll("#tabs button").forEach(b => { const on = b.dataset.v === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on) });
+  if (sum) renderSummary(); else if (current) openDetail();
+  scrollTo({ top: 0 });
+}
+$("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
 
 /* ---- toast ---- */
 let tt;
