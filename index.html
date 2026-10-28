@@ -44,6 +44,7 @@ section.panel { background: var(--panel); border: 1px solid var(--line); border-
 .g2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
 .gs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px }
 #scenes .opt { min-height: 40px; font-size: 14px; font-weight: 500; border-radius: 99px; padding: 4px 8px }
+#scenes .more { min-height: 40px; font-size: 14px; border-radius: 99px; border-style: dashed; color: var(--muted); background: transparent }
 #memo { display: block; margin-top: 12px }
 .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px }
 .actions .btn { min-height: 52px; font-size: 16px }
@@ -182,6 +183,8 @@ const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
 const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/rating/scene names
 
 let records = load();
+const SCENES_SHOWN = 5;
+let scenesOpen = false;
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
@@ -307,6 +310,7 @@ $("cats").addEventListener("click", (e) => {
     }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   }
   draft = rec; // replaces any unconfirmed draft
+  scenesOpen = false;
   if (navigator.vibrate) navigator.vibrate(40);
   openDetail(true);
 });
@@ -321,7 +325,11 @@ function openDetail(scrollToTop = false) {
   $("stepDetail").hidden = false;
   $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1}</span>`;
   $("subs").innerHTML = optBtns(c.subs, r.sub);
-  $("scenes").innerHTML = optBtns(SCENES, r.scene);
+  // only the first few scenes until "more" is pressed, so the confirm button stays on one screen
+  // (a chosen scene further down stays visible)
+  const all = scenesOpen, shown = SCENES.filter((v, i) => all || i < SCENES_SHOWN || v === r.scene);
+  $("scenes").innerHTML = optBtns(shown, r.scene)
+    + `<button class="more" type="button">${all ? tr("閉じる", "收起") : tr(`ほか${SCENES.length - SCENES_SHOWN}件`, `其他${SCENES.length - SCENES_SHOWN}项`)}</button>`;
   $("memo").value = r.memo || "";
   if (!scrollToTop) return;
   const top = $("stepDetail").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8;
@@ -339,7 +347,10 @@ function setField(field, v) {
   }
 }
 $("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
-$("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v) });
+$("scenes").addEventListener("click", (e) => {
+  if (e.target.closest(".more")) { scenesOpen = !scenesOpen; openDetail(); return }
+  const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v);
+});
 $("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").value });
 function finish() {
   if (!draft) return;
