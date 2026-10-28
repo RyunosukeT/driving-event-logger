@@ -513,12 +513,34 @@ function parseImport(text) {
 // same event = same second, category, detail and car
 function dupKey(r) { return [fmtDate(r.t), fmtTime(r.t), r.cat, r.sub, r.car || ""].join("|") }
 
-$("import").addEventListener("click", async () => {
+const importSummary = (r) => `${r.ok.length}件を追加` + (r.dup ? `（重複${r.dup}件は除外）` : "") + (r.bad.length ? `。読めなかった行：${r.bad.slice(0, 10).join(", ")}${r.bad.length > 10 ? " ほか" : ""}行目` : "");
+function addImported(r) {
+  records = records.concat(r.ok).sort((a, b) => a.t - b.t); save(); renderTable(); closeModal();
+  toast(importSummary(r).replace("件を追加", "件を追加しました"));
+}
+$("import").addEventListener("click", () => {
+  $("modal").innerHTML = `<div class="box">
+    <b>クリップボードからデータを追加しますか？</b>
+    <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を見出しごとコピーしてから「追加する」を押してください。</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="cfNo">いいえ</button><button class="btn primary" id="cfYes">追加する</button></div></div>`;
+  $("modal").hidden = false;
+  $("cfNo").onclick = closeModal;
+  $("cfYes").onclick = async () => {
+    let text = null;
+    try { text = await navigator.clipboard.readText() } catch {}
+    if (!text) { openPasteBox("クリップボードを読み取れませんでした。下の枠に貼り付けてください。"); return }
+    const r = parseImport(text);
+    if (r.ok && r.ok.length) { addImported(r); return }
+    openPasteBox(r.error || ("追加できる記録がありません。" + (r.dup ? `（重複${r.dup}件）` : "")), text);
+  };
+});
+// fallback: paste by hand when the clipboard can't be read or holds something unexpected
+function openPasteBox(msg, text = "") {
   $("modal").innerHTML = `<div class="box">
     <b>データを取り込む</b>
     <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。</p>
     <textarea id="impText" placeholder="ここに貼り付け" aria-label="取り込むデータ"></textarea>
-    <p class="note" id="impInfo"></p>
+    <p class="note" id="impInfo">${esc(msg)}</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="impNo">閉じる</button><button class="btn primary" id="impOk" disabled>追加する</button></div></div>`;
   $("modal").hidden = false;
   let parsed = null;
@@ -526,20 +548,14 @@ $("import").addEventListener("click", async () => {
     const v = $("impText").value;
     parsed = v.trim() ? parseImport(v) : null;
     $("impOk").disabled = !(parsed && parsed.ok && parsed.ok.length);
-    $("impInfo").textContent = !parsed ? "" : parsed.error ? parsed.error
-      : `${parsed.ok.length}件を追加できます` + (parsed.dup ? `（重複${parsed.dup}件は除外）` : "") + (parsed.bad.length ? `。読めなかった行：${parsed.bad.slice(0, 10).join(", ")}${parsed.bad.length > 10 ? " ほか" : ""}行目` : "");
+    $("impInfo").textContent = !parsed ? "" : parsed.error ? parsed.error : importSummary(parsed).replace("件を追加", "件を追加できます");
   };
   $("impText").addEventListener("input", check);
   $("impNo").onclick = closeModal;
-  $("impOk").onclick = () => {
-    if (!parsed || !parsed.ok.length) return;
-    records = records.concat(parsed.ok).sort((a, b) => a.t - b.t); save(); renderTable(); closeModal();
-    toast(`${parsed.ok.length}件を取り込みました`);
-  };
+  $("impOk").onclick = () => { if (parsed && parsed.ok && parsed.ok.length) addImported(parsed) };
+  if (text) { $("impText").value = text; check(); $("impInfo").textContent = msg }
   $("impText").focus();
-  // read the clipboard directly where the browser allows it; otherwise the viewer pastes by hand
-  try { const v = await navigator.clipboard.readText(); if (v && !$("impText").value) { $("impText").value = v; check() } } catch {}
-});
+}
 
 /* ---- toast ---- */
 let tt;
