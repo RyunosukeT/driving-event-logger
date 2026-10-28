@@ -201,8 +201,6 @@ const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
 const catOf = (id) => CATS.find(c => c.id === id);
 // Google Maps pin link (GPS coordinates are WGS84, which Google Maps uses as-is).
-const mapUrl = (r) => `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
-
 // Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
 // (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
 function wgsToBd(lat, lon) {
@@ -231,7 +229,7 @@ function baiduUrl(r) {
   // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
   return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
 }
-const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu</a> / <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Google</a>`;
+const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- car name (kept across reloads, stamped on each new record) ---- */
@@ -385,8 +383,8 @@ $("clearAll").addEventListener("click", () => {
 /* ---- copy as TSV ---- */
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "道路", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図", "Googleマップ"];
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.road, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : "", r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
+  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "道路", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図"];
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.road, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 async function copyText(text, okMsg) {
