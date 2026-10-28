@@ -96,6 +96,7 @@ td a { color: var(--accent) }
 .toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px) }
 .modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
 .modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
+.modal .box > .btn { width: 100% }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
 textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px }
 .langbtn { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20;
@@ -147,7 +148,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <p class="label" style="margin:0"><span data-zh="记录列表">記録一覧</span> <span id="count"></span></p>
       <div class="row">
-        <button class="btn primary" id="copy" data-zh="复制表格（粘贴到Excel）">表をコピー（Excel貼付用）</button>
+        <button class="btn primary" id="copy" data-zh="导出">エクスポート</button>
         <button class="btn sm" id="import" data-zh="导入">取込</button>
         <button class="btn danger ghost" id="clearAll" data-zh="全部删除">全削除</button>
       </div>
@@ -456,12 +457,12 @@ const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名
 const COPY_COLS = 10;
 // empty cells are written as "-" in every copied table (import reads "-" back as empty)
 const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-";
-function tsv() {
-  const clean = cellText;
+// table rows (header first) shared by the clipboard copy and the Excel file
+function recordRows() {
   const head = HEAD.slice(0, COPY_COLS).map(h => tr(h[0], h[1]));
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
-  return [head.join("\t"), ...rows].join("\n");
+  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""])];
 }
+const toTsv = (rows) => rows.map(tsvLine).join("\n");
 async function copyText(text, okMsg) {
   try { await navigator.clipboard.writeText(text); $("fallback").hidden = true; toast(okMsg) }
   catch {
@@ -472,7 +473,16 @@ async function copyText(text, okMsg) {
 }
 $("copy").addEventListener("click", () => {
   if (!records.length) { toast(tr("記録がありません", "没有记录")); return }
-  copyText(tsv(), tr(`${records.length}件をコピーしました。Excelに貼り付けできます`, `已复制${records.length}条，可粘贴到Excel`));
+  $("modal").innerHTML = `<div class="box">
+    <b>${tr("エクスポート", "导出")}</b>
+    <p class="note">${tr(`${records.length}件の記録を出力します。Excelファイルには「記録」「日付・車名別」「シーン別」の3シートが入ります。`, `导出${records.length}条记录。Excel文件包含「记录」「按日期・车名」「按场景」3个工作表。`)}</p>
+    <button class="btn primary" id="exXlsx">${tr("Excelファイルをダウンロード", "下载Excel文件")}</button>
+    <button class="btn" id="exCopy">${tr("クリップボードにコピー（記録の表）", "复制到剪贴板（记录表）")}</button>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="exNo">${tr("閉じる", "关闭")}</button></div></div>`;
+  $("modal").hidden = false;
+  $("exNo").onclick = closeModal;
+  $("exCopy").onclick = () => { closeModal(); copyText(toTsv(recordRows()), tr(`${records.length}件をコピーしました。Excelに貼り付けできます`, `已复制${records.length}条，可粘贴到Excel`)) };
+  $("exXlsx").onclick = () => { closeModal(); downloadXlsx() };
 });
 
 /* ---- summary view ---- */
@@ -503,8 +513,7 @@ const cell = (n, cls = "") => `<td class="n${n ? "" : " z"}${cls}">${n}</td>`;
 function sumRow(lead, list, cls = "") {
   return `<tr class="${cls}">${lead.map(v => `<td>${esc(v)}</td>`).join("")}${cell(list.length, " t")}${countCols(list).map((n, i) => cell(n, COLS[i].sub == null ? " bl t" : "")).join("")}</tr>`;
 }
-function groups() {
-  const list = filtered();
+function groups(list = filtered()) {
   const keys = uniq(list.map(r => fmtDate(r.t) + "\u0001" + (r.car || NOCAR))).sort();
   return { list, rows: keys.map(k => { const [d, c] = k.split("\u0001"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
 }
@@ -530,16 +539,78 @@ function renderSummary() {
 }
 const tsvLine = (a) => a.map(cellText).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
+function sum1Rows(list) {
+  const { rows } = groups(list);
+  return [[tr("日付", "日期"), tr("車名", "车名"), tr("合計", "总计"), ...COLS.map(colHead)], ...rows.map(g => [g.d, noneLabel(g.c), ...tsvCounts(g.items)]), [tr("合計", "总计"), "", ...tsvCounts(list)]];
+}
+function sum2Rows(list) {
+  return [[tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)], ...sceneGroups(list).map(g => [noneLabel(g.s), ...tsvCounts(g.items)]), [tr("合計", "总计"), ...tsvCounts(sceneList(list))]];
+}
 $("copySum1").addEventListener("click", () => {
-  const { list, rows } = groups(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
-  const lines = [tsvLine([tr("日付", "日期"), tr("車名", "车名"), tr("合計", "总计"), ...COLS.map(colHead)]), ...rows.map(g => tsvLine([g.d, noneLabel(g.c), ...tsvCounts(g.items)])), tsvLine([tr("合計", "总计"), "", ...tsvCounts(list)])];
-  copyText(lines.join("\n"), tr("日付・車名別の集計をコピーしました", "已复制按日期・车名统计"));
+  const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
+  copyText(toTsv(sum1Rows(list)), tr("日付・車名別の集計をコピーしました", "已复制按日期・车名统计"));
 });
 $("copySum2").addEventListener("click", () => {
   const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
-  const lines = [tsvLine([tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)]), ...sceneGroups(list).map(g => tsvLine([noneLabel(g.s), ...tsvCounts(g.items)])), tsvLine([tr("合計", "总计"), ...tsvCounts(sceneList(list))])];
-  copyText(lines.join("\n"), tr("シーン別の集計をコピーしました", "已复制按场景统计"));
+  copyText(toTsv(sum2Rows(list)), tr("シーン別の集計をコピーしました", "已复制按场景统计"));
 });
+
+/* ---- Excel (.xlsx) export: written by hand (stored ZIP + SpreadsheetML) so no library has to load ---- */
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 });
+function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0 }
+function zipStore(files) { // files: [{name, data: string}] → Uint8Array (no compression)
+  const enc = new TextEncoder(), parts = [], central = []; let offset = 0;
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+    const local = new Uint8Array([...u32(0x04034b50), ...common]);
+    parts.push(local, name, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+    offset += local.length + name.length + data.length;
+  }
+  const cdSize = central.reduce((n, a) => n + a.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(offset), ...u16(0)]);
+  const all = [...parts, ...central, end], out = new Uint8Array(all.reduce((n, a) => n + a.length, 0)); let p = 0;
+  for (const a of all) { out.set(a, p); p += a.length }
+  return out;
+}
+const xmlEsc = (v) => String(v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+function colName(i) { let s = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s }
+function sheetXml(rows, widths) {
+  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
+  const body = rows.map((row, r) => `<row r="${r + 1}">` + row.map((v, c) => {
+    const ref = colName(c) + (r + 1), st = r === 0 ? ' s="1"' : "";
+    return typeof v === "number" ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t>${xmlEsc(cellText(v))}</t></is></c>`;
+  }).join("") + "</row>").join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${body}</sheetData></worksheet>`;
+}
+function buildXlsx(sheets) { // sheets: [{name, rows, widths}]
+  const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  return zipStore([
+    { name: "[Content_Types].xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>` },
+    { name: "_rels/.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: "xl/workbook.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${ns}><sheets>${sheets.map((sh, i) => `<sheet name="${xmlEsc(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>` },
+    { name: "xl/_rels/workbook.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: "xl/styles.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>` },
+    ...sheets.map((sh, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(sh.rows, sh.widths) })),
+  ]);
+}
+function downloadXlsx() {
+  const sumW = [12, 12, 8, ...COLS.map(() => 12)];
+  const data = buildXlsx([
+    { name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 16, 12, 16, 30, 40] },
+    { name: tr("日付・車名別", "按日期・车名"), rows: sum1Rows(records), widths: sumW },
+    { name: tr("シーン別", "按场景"), rows: sum2Rows(records), widths: sumW.slice(1) },
+  ]);
+  const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  a.download = `drive_events_${stamp}.xlsx`; // ASCII: some browsers drop non-ASCII download names
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
+}
 $("fDate").addEventListener("change", renderSummary);
 $("fCar").addEventListener("change", renderSummary);
 $("fRoad").addEventListener("change", renderSummary);
