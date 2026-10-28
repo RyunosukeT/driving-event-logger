@@ -182,9 +182,9 @@ const CATS = [
   { id: "oth",  name: "その他", subs: ["計測開始", "計測終了", "システム退出"], noScene: true }, // no road / scene step
 ];
 const ROADS = ["高速道", "一般道"];
-const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビレーンチェンジ", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
+const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビLC", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
 // scene names used by earlier versions, mapped to their current names
-const SCENE_RENAMES = { "巡行・発進": "巡行", "追従加速": "発進・加速", "割り込まれ": "受動回避" };
+const SCENE_RENAMES = { "巡行・発進": "巡行", "追従加速": "発進・加速", "割り込まれ": "受動回避", "ナビレーンチェンジ": "ナビLC" };
 const KEY = "drive-event-logger-v1";
 const CAR_KEY = "drive-event-logger-car";
 const $ = (id) => document.getElementById(id);
