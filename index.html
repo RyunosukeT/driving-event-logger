@@ -96,6 +96,7 @@ td a { color: var(--accent) }
 .modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
 .modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
+textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px }
 .note { font-size: 12px; color: var(--muted); margin: 0 }
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
 @media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px; padding: 4px } .cat .nb { display: inline } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
@@ -143,6 +144,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <p class="label" style="margin:0">記録一覧 <span id="count"></span></p>
       <div class="row">
         <button class="btn primary" id="copy">表をコピー（Excel貼付用）</button>
+        <button class="btn" id="import">貼り付けて取り込む</button>
         <button class="btn danger ghost" id="clearAll">全削除</button>
       </div>
     </div>
@@ -480,6 +482,63 @@ function showView(v) {
   scrollTo({ top: 0 });
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
+
+/* ---- import pasted TSV (same columns as 表をコピー; matched by header name) ---- */
+function parseImport(text) {
+  const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
+  if (!lines.length) return { error: "貼り付けたデータが空です" };
+  const cells = (l) => l.split("\t").map(v => v.trim().replace(/^"(.*)"$/, "$1"));
+  const head = cells(lines[0]), col = (name) => head.indexOf(name);
+  const need = ["日付", "時刻", "分類"].filter(n => col(n) < 0);
+  if (need.length) return { error: `1行目に見出し（${need.join("・")}）が見つかりません。「表をコピー」したデータを見出しごと貼り付けてください` };
+  const num = (v) => v === "" || v == null || isNaN(+v) ? null : +v;
+  const have = new Set(records.map(dupKey));
+  const ok = [], bad = []; let dup = 0;
+  lines.slice(1).forEach((l, i) => {
+    const c = cells(l), get = (n) => (col(n) >= 0 ? c[col(n)] ?? "" : "");
+    const d = get("日付").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/), tm = get("時刻").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    const cat = CATS.find(x => x.name === get("分類"));
+    if (!d || !tm || !cat) { bad.push(i + 2); return }
+    const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
+    const scene = get("シーン");
+    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: get("詳細"), road: get("道路"),
+      scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")), acc: num(get("精度(m)")), lag: num(get("位置の遅れ(秒)")) };
+    if (r.lat == null || r.lon == null) r.lat = r.lon = null;
+    if (have.has(dupKey(r))) { dup++; return }
+    have.add(dupKey(r)); ok.push(r);
+  });
+  return { ok, dup, bad };
+}
+// same event = same second, category, detail and car
+function dupKey(r) { return [fmtDate(r.t), fmtTime(r.t), r.cat, r.sub, r.car || ""].join("|") }
+
+$("import").addEventListener("click", async () => {
+  $("modal").innerHTML = `<div class="box">
+    <b>貼り付けて取り込む</b>
+    <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。</p>
+    <textarea id="impText" placeholder="ここに貼り付け" aria-label="取り込むデータ"></textarea>
+    <p class="note" id="impInfo"></p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="impNo">閉じる</button><button class="btn primary" id="impOk" disabled>追加する</button></div></div>`;
+  $("modal").hidden = false;
+  let parsed = null;
+  const check = () => {
+    const v = $("impText").value;
+    parsed = v.trim() ? parseImport(v) : null;
+    $("impOk").disabled = !(parsed && parsed.ok && parsed.ok.length);
+    $("impInfo").textContent = !parsed ? "" : parsed.error ? parsed.error
+      : `${parsed.ok.length}件を追加できます` + (parsed.dup ? `（重複${parsed.dup}件は除外）` : "") + (parsed.bad.length ? `。読めなかった行：${parsed.bad.slice(0, 10).join(", ")}${parsed.bad.length > 10 ? " ほか" : ""}行目` : "");
+  };
+  $("impText").addEventListener("input", check);
+  $("impNo").onclick = closeModal;
+  $("impOk").onclick = () => {
+    if (!parsed || !parsed.ok.length) return;
+    records = records.concat(parsed.ok).sort((a, b) => a.t - b.t); save(); renderTable(); closeModal();
+    toast(`${parsed.ok.length}件を取り込みました`);
+  };
+  $("impText").focus();
+  // read the clipboard directly where the browser allows it; otherwise the viewer pastes by hand
+  try { const v = await navigator.clipboard.readText(); if (v && !$("impText").value) { $("impText").value = v; check() } } catch {}
+});
 
 /* ---- toast ---- */
 let tt;
