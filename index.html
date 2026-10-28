@@ -202,6 +202,36 @@ const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${p
 const catOf = (id) => CATS.find(c => c.id === id);
 // Google Maps pin link (GPS coordinates are WGS84, which Google Maps uses as-is).
 const mapUrl = (r) => `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
+
+// Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
+// (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
+function wgsToBd(lat, lon) {
+  if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271) return null;
+  const a = 6378245.0, ee = 0.00669342162296594323, PI = Math.PI, x = lon - 105, y = lat - 35;
+  let dLat = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x))
+    + (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3
+    + (20 * Math.sin(y * PI) + 40 * Math.sin(y / 3 * PI)) * 2 / 3
+    + (160 * Math.sin(y / 12 * PI) + 320 * Math.sin(y * PI / 30)) * 2 / 3;
+  let dLon = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x))
+    + (20 * Math.sin(6 * x * PI) + 20 * Math.sin(2 * x * PI)) * 2 / 3
+    + (20 * Math.sin(x * PI) + 40 * Math.sin(x / 3 * PI)) * 2 / 3
+    + (150 * Math.sin(x / 12 * PI) + 300 * Math.sin(x / 30 * PI)) * 2 / 3;
+  const rad = lat / 180 * PI, m = 1 - ee * Math.sin(rad) ** 2, sm = Math.sqrt(m);
+  const gLat = lat + dLat * 180 / ((a * (1 - ee)) / (m * sm) * PI);
+  const gLon = lon + dLon * 180 / (a / sm * Math.cos(rad) * PI);
+  const X = PI * 3000 / 180, z = Math.sqrt(gLon * gLon + gLat * gLat) + 0.00002 * Math.sin(gLat * X);
+  const th = Math.atan2(gLat, gLon) + 0.000003 * Math.cos(gLon * X);
+  return { lat: +(z * Math.sin(th) + 0.006).toFixed(6), lon: +(z * Math.cos(th) + 0.0065).toFixed(6) };
+}
+function baiduUrl(r) {
+  const bd = wgsToBd(r.lat, r.lon);
+  const loc = bd ? `${bd.lat},${bd.lon}&coord_type=bd09ll` : `${r.lat},${r.lon}&coord_type=wgs84`;
+  const title = encodeURIComponent(`${catOf(r.cat).name} ${r.sub || ""}`.trim());
+  const content = encodeURIComponent(`${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`);
+  // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
+  return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
+}
+const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu</a> / <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Google</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- car name (kept across reloads, stamped on each new record) ---- */
@@ -265,7 +295,7 @@ function openDetail(scrollToTop = false) {
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "· 位置取得中…"}</span>`;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · ${mapLinks(r)}` : "· 位置取得中…"}</span>`;
   $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
   $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
@@ -303,7 +333,7 @@ function renderTable() {
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="15" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
-    const map = r.lat != null ? `<a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "—";
+    const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
       <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.road) || "—"}</td><td>${esc(r.scene) || "—"}</td>
@@ -355,8 +385,8 @@ $("clearAll").addEventListener("click", () => {
 /* ---- copy as TSV ---- */
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "道路", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Googleマップ"];
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.road, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
+  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "道路", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図", "Googleマップ"];
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.road, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : "", r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 async function copyText(text, okMsg) {
