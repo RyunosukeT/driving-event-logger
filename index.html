@@ -222,7 +222,6 @@ function openDetail() {
 function setField(field, v) {
   const r = records.find(x => x.id === current); if (!r) return;
   r[field] = r[field] === v ? "" : v; save(); openDetail(); renderTable();
-  if (field === "scene" && r.sub && r.scene) finish();
 }
 $("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
 $("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v) });
