@@ -147,7 +147,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       </div>
     </div>
     <div class="tablebox"><table>
-      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>車名</th><th>分類</th><th>詳細</th><th>道路</th><th>シーン</th><th>地図</th><th>緯度</th><th>経度</th><th>精度(m)</th><th>位置の遅れ(秒)</th><th>メモ</th><th></th></tr></thead>
+      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>車名</th><th>分類</th><th>詳細</th><th>道路</th><th>シーン</th><th>地図</th><th>メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
   </section>
@@ -297,7 +297,7 @@ function openDetail(scrollToTop = false) {
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · ${mapLinks(r)}` : "· 位置取得中…"}</span>`;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${mapLinks(r)}` : "· 位置取得中…"}</span>`;
   $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
   $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
@@ -332,14 +332,14 @@ $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidd
 function renderTable() {
   renderSummary();
   $("count").textContent = records.length ? `（${records.length}件）` : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="15" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
     const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
       <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.road) || "—"}</td><td>${esc(r.scene) || "—"}</td>
-      <td>${map}</td><td class="num">${r.lat ?? "—"}</td><td class="num">${r.lon ?? "—"}</td><td class="num">${r.acc ?? "—"}</td><td class="num">${r.lag ?? "—"}</td>
+      <td>${map}</td>
       <td class="memo-c">${esc(r.memo)}</td>
       <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">編集</button><button data-a="del">削除</button></div></td></tr>`;
   }).join("");
