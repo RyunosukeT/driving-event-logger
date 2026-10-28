@@ -133,7 +133,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <button class="btn primary" id="done">記録を確定</button>
       <button class="btn danger ghost" id="cancel">取り消す</button>
     </div>
-    <p class="note" style="margin-top:10px">②③を選ばずに次の分類を押しても、この記録は保存されたまま残ります（あとで表から編集できます）。</p>
+    <p class="note" style="margin-top:10px">②〜④を選ばずに次の分類を押しても、この記録は保存されたまま残ります（あとで表から編集できます）。</p>
   </section>
 
   <section id="logView">
@@ -249,12 +249,13 @@ $("cats").addEventListener("click", (e) => {
   records.push(rec); save();
   current = rec.id;
   if (navigator.vibrate) navigator.vibrate(40);
-  openDetail();
+  openDetail(true);
   renderTable();
 });
 
 /* ---- step 2/3 ---- */
-function openDetail() {
+// scrollToTop: only when the panel opens; picking options must not jump the page back up
+function openDetail(scrollToTop = false) {
   const r = records.find(x => x.id === current);
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
@@ -264,12 +265,18 @@ function openDetail() {
   $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("scenes").innerHTML = SCENES.map(s => `<button class="opt${r.scene === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("memo").value = r.memo || "";
+  if (!scrollToTop) return;
   const top = $("stepDetail").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8;
   if (top < 0 || top > innerHeight * 0.6) scrollTo({ top: scrollY + top, behavior: "smooth" });
 }
 function setField(field, v) {
   const r = records.find(x => x.id === current); if (!r) return;
   r[field] = r[field] === v ? "" : v; save(); openDetail(); renderTable();
+  // after a scene is chosen, bring the confirm button into easy reach
+  if (field === "scene" && r.scene) {
+    const b = $("done").getBoundingClientRect();
+    if (b.bottom > innerHeight - 24) scrollTo({ top: scrollY + b.bottom - innerHeight + 96, behavior: "smooth" });
+  }
 }
 $("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
 $("roads").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("road", b.dataset.v) });
@@ -424,7 +431,7 @@ function showView(v) {
   $("stepDetail").hidden = sum || !current;
   $("fallback").hidden = true;
   document.querySelectorAll("#tabs button").forEach(b => { const on = b.dataset.v === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on) });
-  if (sum) renderSummary(); else if (current) openDetail();
+  if (sum) renderSummary(); else if (current) openDetail(true);
   scrollTo({ top: 0 });
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
