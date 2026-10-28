@@ -330,8 +330,10 @@ function openDetail(scrollToTop = false) {
 function setField(field, v) {
   const r = draft; if (!r) return;
   r[field] = r[field] === v ? "" : v; openDetail();
-  // after a rating or scene is chosen, bring the confirm button into easy reach
-  if ((field === "scene" && r.scene) || (field === "sub" && r.sub)) {
+  // after a rating is chosen, go straight to the comment
+  if (field === "sub" && r.sub) { $("memo").focus({ preventScroll: true }); return }
+  // after a scene is chosen, bring the confirm button into easy reach
+  if (field === "scene" && r.scene) {
     const b = $("done").getBoundingClientRect();
     if (b.bottom > innerHeight - 24) scrollTo({ top: scrollY + b.bottom - innerHeight + 96, behavior: "smooth" });
   }
