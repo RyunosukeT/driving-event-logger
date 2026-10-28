@@ -26,7 +26,7 @@
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
   -webkit-tap-highlight-color: transparent }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel) }
-.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 40px; display: grid; gap: 16px }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 40px; display: grid; gap: 16px }
 header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px }
 header .in { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px }
@@ -44,6 +44,7 @@ section.panel { background: var(--panel); border: 1px solid var(--line); border-
 button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
 .in2 { max-width: 860px; margin: 8px auto 0 }
+#car { min-height: 38px; padding: 6px 10px }
 .cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
 .cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) }
@@ -89,6 +90,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText">位置情報 取得中…</span></span>
   <span class="clock" id="clock">--:--:--</span>
 </div>
+<div class="in2"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名"></div>
 <div class="in2" id="stepCat">
   <div class="grid g3" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
 </div></header>
@@ -122,7 +124,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       </div>
     </div>
     <div class="tablebox"><table>
-      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>分類</th><th>詳細</th><th>シーン</th><th>地図</th><th>緯度</th><th>経度</th><th>精度(m)</th><th>位置の遅れ(秒)</th><th>メモ</th><th></th></tr></thead>
+      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>車名</th><th>分類</th><th>詳細</th><th>シーン</th><th>地図</th><th>緯度</th><th>経度</th><th>精度(m)</th><th>位置の遅れ(秒)</th><th>メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
     <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
@@ -140,6 +142,7 @@ const CATS = [
 ];
 const SCENES = ["巡行・発進", "追従加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "追い越し", "割り込まれ", "横断", "ラウンドアバウト"];
 const KEY = "drive-event-logger-v1";
+const CAR_KEY = "drive-event-logger-car";
 const $ = (id) => document.getElementById(id);
 
 let records = load();
@@ -155,6 +158,10 @@ const catOf = (id) => CATS.find(c => c.id === id);
 // Google Maps pin link (GPS coordinates are WGS84, which Google Maps uses as-is).
 const mapUrl = (r) => `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+/* ---- car name (kept across reloads, stamped on each new record) ---- */
+try { $("car").value = localStorage.getItem(CAR_KEY) || "" } catch {}
+$("car").addEventListener("input", () => { try { localStorage.setItem(CAR_KEY, $("car").value) } catch {} });
 
 /* ---- clock & GPS ---- */
 setInterval(() => { $("clock").textContent = fmtTime(Date.now()); renderGps() }, 500);
@@ -192,7 +199,7 @@ $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}">${c.na
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
   const t = Date.now();
-  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, sub: "", scene: "", memo: "", lat: null, lon: null, acc: null, lag: null };
+  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", scene: "", memo: "", lat: null, lon: null, acc: null, lag: null };
   if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
   else if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition((p) => {
@@ -233,12 +240,12 @@ $("cancel").addEventListener("click", () => { records = records.filter(x => x.id
 /* ---- table ---- */
 function renderTable() {
   $("count").textContent = records.length ? `（${records.length}件）` : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="13" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="14" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub || !r.scene;
     const map = r.lat != null ? `<a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
-      <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td>
+      <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
       <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.scene) || "—"}</td>
       <td>${map}</td><td class="num">${r.lat ?? "—"}</td><td class="num">${r.lon ?? "—"}</td><td class="num">${r.acc ?? "—"}</td><td class="num">${r.lag ?? "—"}</td>
       <td class="memo-c">${esc(r.memo)}</td>
@@ -265,6 +272,7 @@ function editModal(id) {
   const opts = (list, v) => `<option value="">（未選択）</option>` + list.map(s => `<option${s === v ? " selected" : ""}>${esc(s)}</option>`).join("");
   $("modal").innerHTML = `<div class="box">
     <b>No.${records.indexOf(r) + 1} を編集 <span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></b>
+    <label>車名<input type="text" id="eCar" value="${esc(r.car)}"></label>
     <label>分類<select id="eCat">${CATS.map(c => `<option value="${c.id}"${c.id === r.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></label>
     <label>詳細<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
     <label>シーン<select id="eScene">${opts(SCENES, r.scene)}</select></label>
@@ -274,7 +282,7 @@ function editModal(id) {
   $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, "") };
   $("eNo").onclick = closeModal;
   $("eOk").onclick = () => {
-    r.cat = $("eCat").value; r.sub = $("eSub").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
+    r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
     save(); renderTable(); if (current === id) openDetail(); closeModal(); toast("保存しました");
   };
 }
@@ -286,8 +294,8 @@ $("clearAll").addEventListener("click", () => {
 /* ---- copy as TSV ---- */
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = ["No", "日付", "時刻", "分類", "詳細", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Googleマップ"];
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
+  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Googleマップ"];
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 $("copy").addEventListener("click", async () => {
