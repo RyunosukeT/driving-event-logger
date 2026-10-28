@@ -26,7 +26,7 @@
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
   -webkit-tap-highlight-color: transparent }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel) }
-.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 40px; display: grid; gap: 16px }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 88px; display: grid; gap: 16px }
 header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px }
 header .in { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px }
@@ -93,11 +93,14 @@ tr.pending td { background: color-mix(in srgb, var(--warn) 12%, transparent) }
 td a { color: var(--accent) }
 .act button { padding: 6px 10px; font-size: 12px; min-height: 34px }
 .empty { padding: 24px; text-align: center; color: var(--muted) }
-.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px) }
+.toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px) }
 .modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
 .modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
 textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px }
+.langbtn { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  min-height: 44px; padding: 0 16px; border-radius: 99px; font-weight: 700; background: var(--panel); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 2px 10px color-mix(in srgb, #000 18%, transparent) }
+html:lang(zh-CN) body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", system-ui, sans-serif }
 .note { font-size: 12px; color: var(--muted); margin: 0 }
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
 @media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px; padding: 4px } .cat .nb { display: inline } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
@@ -106,14 +109,14 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 
 </head><body>
 <header><div class="in">
-  <h1>走行評価イベントロガー</h1>
-  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText">位置情報 取得中…</span></span>
+  <h1 data-zh="行驶评价事件记录">走行評価イベントロガー</h1>
+  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText"></span></span>
   <span class="clock" id="clock">--:--:--</span>
 </div>
-<div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名">
-  <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true">記録</button><button data-v="sum" aria-pressed="false">集計</button></nav></div>
+<div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" data-zh-ph="车名（附加到之后的记录）" autocomplete="off" aria-label="車名">
+  <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true" data-zh="记录">記録</button><button data-v="sum" aria-pressed="false" data-zh="统计">集計</button></nav></div>
 <div class="in2" id="stepCat">
-  <div class="grid g5" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
+  <div class="grid g5" id="cats"></div>
 </div></header>
 
 <div class="wrap">
@@ -121,36 +124,36 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <section class="panel" id="stepDetail" hidden>
     <div class="cur" id="curInfo"></div>
     <div class="step">
-      <p class="label">② 詳細</p>
+      <p class="label" data-zh="② 详细">② 詳細</p>
       <div class="grid gs" id="subs"></div>
     </div>
     <div class="step" id="stepRoad">
-      <p class="label">③ 道路</p>
+      <p class="label" data-zh="③ 道路">③ 道路</p>
       <div class="grid g2" id="roads"></div>
     </div>
     <div class="step" id="stepScene">
-      <p class="label">④ シーン</p>
+      <p class="label" data-zh="④ 场景">④ シーン</p>
       <div class="grid gs" id="scenes"></div>
     </div>
     <div class="step row">
-      <input type="text" id="memo" class="memo" placeholder="メモ（任意）" autocomplete="off">
-      <button class="btn primary" id="done">記録を確定</button>
-      <button class="btn danger ghost" id="cancel">取り消す</button>
+      <input type="text" id="memo" class="memo" placeholder="メモ（任意）" data-zh-ph="备注（可选）" autocomplete="off">
+      <button class="btn primary" id="done" data-zh="确认记录">記録を確定</button>
+      <button class="btn danger ghost" id="cancel" data-zh="取消">取り消す</button>
     </div>
-    <p class="note" style="margin-top:10px">「記録を確定」を押すまでは記録されません。確定せずに分類ボタンやタブを切り替えると、入力中の内容は破棄されます。</p>
+    <p class="note" style="margin-top:10px" data-zh="按下「确认记录」之前不会保存。未确认就切换分类按钮或标签页时，正在输入的内容会被丢弃。">「記録を確定」を押すまでは記録されません。確定せずに分類ボタンやタブを切り替えると、入力中の内容は破棄されます。</p>
   </section>
 
   <section id="logView">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
-      <p class="label" style="margin:0">記録一覧 <span id="count"></span></p>
+      <p class="label" style="margin:0"><span data-zh="记录列表">記録一覧</span> <span id="count"></span></p>
       <div class="row">
-        <button class="btn primary" id="copy">表をコピー（Excel貼付用）</button>
-        <button class="btn sm" id="import" title="コピーしたデータを貼り付けて取り込む">取込</button>
-        <button class="btn danger ghost" id="clearAll">全削除</button>
+        <button class="btn primary" id="copy" data-zh="复制表格（粘贴到Excel）">表をコピー（Excel貼付用）</button>
+        <button class="btn sm" id="import" data-zh="导入">取込</button>
+        <button class="btn danger ghost" id="clearAll" data-zh="全部删除">全削除</button>
       </div>
     </div>
     <div class="tablebox"><table>
-      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>車名</th><th>分類</th><th>詳細</th><th>道路</th><th>シーン</th><th>地図</th><th>メモ</th><th></th></tr></thead>
+      <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="详细">詳細</th><th data-zh="道路">道路</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
   </section>
@@ -158,16 +161,16 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <section id="sumView" hidden>
     <div class="grid" style="gap:16px">
       <div class="filters">
-        <label>日付<select id="fDate"></select></label>
-        <label>道路<select id="fRoad"></select></label>
-        <label>車名<select id="fCar"></select></label>
+        <label><span data-zh="日期">日付</span><select id="fDate"></select></label>
+        <label><span data-zh="道路">道路</span><select id="fRoad"></select></label>
+        <label><span data-zh="车名">車名</span><select id="fCar"></select></label>
       </div>
       <section class="panel">
-        <div class="sumhead"><p class="label">日付・車名別の件数 <span id="sumCount"></span></p><button class="btn primary" id="copySum1">表をコピー</button></div>
+        <div class="sumhead"><p class="label"><span data-zh="按日期・车名统计">日付・車名別の件数</span> <span id="sumCount"></span></p><button class="btn primary" id="copySum1" data-zh="复制表格">表をコピー</button></div>
         <div class="tablebox"><table class="sum" id="sum1"></table></div>
       </section>
       <section class="panel">
-        <div class="sumhead"><p class="label">シーン別の件数</p><button class="btn primary" id="copySum2">表をコピー</button></div>
+        <div class="sumhead"><p class="label" data-zh="按场景统计">シーン別の件数</p><button class="btn primary" id="copySum2" data-zh="复制表格">表をコピー</button></div>
         <div class="tablebox"><table class="sum" id="sum2"></table></div>
       </section>
     </div>
@@ -175,6 +178,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
 </div>
 
+<button class="langbtn" id="lang" type="button" aria-label="言語切替 / 切换语言"></button>
 <div class="modal" id="modal" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -190,9 +194,29 @@ const ROADS = ["高速道", "一般道"];
 const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビLC", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
 // scene names used by earlier versions, mapped to their current names
 const SCENE_RENAMES = { "巡行・発進": "巡行", "追従加速": "発進・加速", "割り込まれ": "受動回避", "ナビレーンチェンジ": "ナビLC" };
+// Records always store the Japanese names; ZH translates them (and fixed labels) for display.
+const ZH = {
+  "安全T/O": "安全接管", "効率T/O": "效率接管", "交通違反": "交通违规", "不要作動": "误动作", "その他": "其他",
+  "危険度 高": "危险度 高", "危険度 中": "危险度 中", "危険度 低": "危险度 低",
+  "発進しない": "不起步", "加速しない": "不加速", "車線間違い": "车道错误",
+  "信号無視": "闯红灯", "実線を踏む": "压实线", "速度超過": "超速", "歩行者保護違反": "未礼让行人",
+  "不要減速": "误减速", "不要加速": "误加速", "不要操舵": "误转向",
+  "計測開始": "测试开始", "計測終了": "测试结束", "システム退出": "系统退出", "システム降級": "系统降级", "システム起動": "系统启动",
+  "高速道": "高速公路", "一般道": "普通道路",
+  "巡行": "巡航", "発進・加速": "起步・加速", "減速": "减速", "右折": "右转", "左折": "左转", "Uターン": "掉头",
+  "合流・分岐": "汇入・汇出", "ナビLC": "导航变道", "追い越し": "超车", "主動回避": "主动避让", "受動回避": "被动避让",
+  "横断": "横穿", "ラウンドアバウト": "环岛",
+};
+const FROM_ZH = Object.fromEntries(Object.entries(ZH).map(([ja, zh]) => [zh, ja]));
 const KEY = "drive-event-logger-v1";
 const CAR_KEY = "drive-event-logger-car";
+const LANG_KEY = "drive-event-logger-lang";
 const $ = (id) => document.getElementById(id);
+
+let lang = "ja";
+try { if (localStorage.getItem(LANG_KEY) === "zh") lang = "zh" } catch {}
+const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
+const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/detail/road/scene names
 
 let records = load();
 records.forEach(r => { if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene] });
@@ -200,12 +224,11 @@ let draft = null;     // record being filled in; joins records only on 記録を
 let fix = null;       // latest GeolocationPosition
 
 function load() { try { return JSON.parse(localStorage.getItem(KEY) || "[]") } catch { return [] } }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(records)) } catch { toast("この端末では保存できません（プライベートモード等）") } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(records)) } catch { toast(tr("この端末では保存できません（プライベートモード等）", "此设备无法保存（无痕模式等）")) } }
 const pad = (n) => String(n).padStart(2, "0");
 const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
 const catOf = (id) => CATS.find(c => c.id === id);
-// Google Maps pin link (GPS coordinates are WGS84, which Google Maps uses as-is).
 // Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
 // (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
 function wgsToBd(lat, lon) {
@@ -229,13 +252,28 @@ function wgsToBd(lat, lon) {
 function baiduUrl(r) {
   const bd = wgsToBd(r.lat, r.lon);
   const loc = bd ? `${bd.lat},${bd.lon}&coord_type=bd09ll` : `${r.lat},${r.lon}&coord_type=wgs84`;
-  const title = encodeURIComponent(`${catOf(r.cat).name} ${r.sub || ""}`.trim());
+  const title = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""}`.trim());
   const content = encodeURIComponent(`${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`);
   // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
   return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
 }
-const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>`;
+const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">${tr("Baidu地図", "百度地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+/* ---- language ---- */
+function applyLang() {
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : "ja";
+  document.querySelectorAll("[data-zh]").forEach(el => { if (el.dataset.ja == null) el.dataset.ja = el.textContent; el.textContent = lang === "zh" ? el.dataset.zh : el.dataset.ja });
+  document.querySelectorAll("[data-zh-ph]").forEach(el => { if (el.dataset.jaPh == null) el.dataset.jaPh = el.placeholder; el.placeholder = lang === "zh" ? el.dataset.zhPh : el.dataset.jaPh });
+  $("lang").textContent = lang === "zh" ? "日本語" : "中文";
+  renderCats(); renderGps(); renderTable();
+  if (draft) openDetail();
+}
+$("lang").addEventListener("click", () => {
+  lang = lang === "zh" ? "ja" : "zh";
+  try { localStorage.setItem(LANG_KEY, lang) } catch {}
+  applyLang();
+});
 
 /* ---- car name (kept across reloads, stamped on each new record) ---- */
 try { $("car").value = localStorage.getItem(CAR_KEY) || "" } catch {}
@@ -244,20 +282,20 @@ $("car").addEventListener("input", () => { try { localStorage.setItem(CAR_KEY, $
 /* ---- clock & GPS ---- */
 setInterval(() => { $("clock").textContent = fmtTime(Date.now()); renderGps() }, 500);
 
+let gpsError = 0; // 0 none, 1 denied, 2 unavailable
 function renderGps() {
   const el = $("gps");
-  if (!("geolocation" in navigator)) { el.dataset.s = "none"; $("gpsText").textContent = "位置情報 非対応"; return }
-  if (gpsError) { el.dataset.s = "none"; $("gpsText").textContent = gpsError; return }
-  if (!fix) return;
+  if (!("geolocation" in navigator)) { el.dataset.s = "none"; $("gpsText").textContent = tr("位置情報 非対応", "不支持定位"); return }
+  if (gpsError) { el.dataset.s = "none"; $("gpsText").textContent = gpsError === 1 ? tr("位置情報 許可されていません", "定位未授权") : tr("位置情報 取得できません", "无法获取定位"); return }
+  if (!fix) { $("gpsText").textContent = tr("位置情報 取得中…", "正在获取定位…"); return }
   const age = (Date.now() - fix.timestamp) / 1000, acc = fix.coords.accuracy;
   el.dataset.s = age < 10 && acc <= 30 ? "ok" : "weak";
-  $("gpsText").textContent = `±${Math.round(acc)}m · ${age < 1 ? "最新" : Math.round(age) + "秒前"}`;
+  $("gpsText").textContent = `±${Math.round(acc)}m · ${age < 1 ? tr("最新", "最新") : Math.round(age) + tr("秒前", "秒前")}`;
 }
-let gpsError = "";
 if ("geolocation" in navigator) {
   navigator.geolocation.watchPosition(
-    (p) => { fix = p; gpsError = ""; renderGps() },
-    (e) => { gpsError = e.code === 1 ? "位置情報 許可されていません" : "位置情報 取得できません"; renderGps() },
+    (p) => { fix = p; gpsError = 0; renderGps() },
+    (e) => { gpsError = e.code === 1 ? 1 : 2; renderGps() },
     { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
   );
 }
@@ -274,8 +312,11 @@ function applyFix(rec, p) {
 
 /* ---- step 1: category ---- */
 // names of 4+ characters break after the 2nd character on phones (交通/違反, 安全/T/O)
-const catLabel = (n) => n.length >= 4 ? n.slice(0, 2) + '<br class="nb">' + n.slice(2) : n;
-$("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${c.name}">${catLabel(c.name)}<small>${c.subs.join(" / ")}</small></button>`).join("");
+const catLabel = (n) => n.length >= 4 ? esc(n.slice(0, 2)) + '<br class="nb">' + esc(n.slice(2)) : esc(n);
+function renderCats() {
+  $("cats").setAttribute("aria-label", tr("① イベント分類（押した時刻と位置を記録）", "① 事件分类（记录按下时的时间和位置）"));
+  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}">${catLabel(L(c.name))}</button>`).join("");
+}
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
   const t = Date.now();
@@ -294,17 +335,18 @@ $("cats").addEventListener("click", (e) => {
 });
 
 /* ---- step 2/3 ---- */
+const optBtns = (list, cur) => list.map(s => `<button class="opt${cur === s ? " sel" : ""}" data-v="${esc(s)}">${esc(L(s))}</button>`).join("");
 // scrollToTop: only when the panel opens; picking options must not jump the page back up
 function openDetail(scrollToTop = false) {
   const r = draft;
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${mapLinks(r)}` : "· 位置取得中…"}</span>`;
-  $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${mapLinks(r)}` : "· " + tr("位置取得中…", "正在获取位置…")}</span>`;
+  $("subs").innerHTML = optBtns(c.subs, r.sub);
   $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
-  $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
-  $("scenes").innerHTML = SCENES.map(s => `<button class="opt${r.scene === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
+  $("roads").innerHTML = optBtns(ROADS, r.road);
+  $("scenes").innerHTML = optBtns(SCENES, r.scene);
   $("memo").value = r.memo || "";
   if (!scrollToTop) return;
   const top = $("stepDetail").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8;
@@ -326,72 +368,74 @@ $("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").va
 function finish() {
   if (!draft) return;
   records.push(draft); save(); draft = null;
-  $("stepDetail").hidden = true; toast("記録しました"); renderTable();
+  $("stepDetail").hidden = true; toast(tr("記録しました", "已记录")); renderTable();
 }
 $("done").addEventListener("click", finish);
-$("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast("取り消しました") });
+$("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast(tr("取り消しました", "已取消")) });
 
 /* ---- table ---- */
 function renderTable() {
   renderSummary();
-  $("count").textContent = records.length ? `（${records.length}件）` : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
+  $("count").textContent = records.length ? tr(`（${records.length}件）`, `（${records.length}条）`) : "";
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
     const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
-      <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.road) || "—"}</td><td>${esc(r.scene) || "—"}</td>
+      <td><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span></td><td>${esc(L(r.sub)) || "—"}</td><td>${esc(L(r.road)) || "—"}</td><td>${esc(L(r.scene)) || "—"}</td>
       <td>${map}</td>
       <td class="memo-c">${esc(r.memo)}</td>
-      <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">編集</button><button data-a="del">削除</button></div></td></tr>`;
+      <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button></div></td></tr>`;
   }).join("");
 }
 $("tbody").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const id = b.closest("tr").dataset.id;
   if (b.dataset.a === "edit") editModal(id);
-  else confirmModal("この記録を削除しますか？", () => { records = records.filter(x => x.id !== id); save(); renderTable() });
+  else confirmModal(tr("この記録を削除しますか？", "要删除这条记录吗？"), () => { records = records.filter(x => x.id !== id); save(); renderTable() });
 });
 
 /* ---- modals ---- */
 function closeModal() { $("modal").hidden = true; $("modal").innerHTML = "" }
 $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal() });
 function confirmModal(msg, ok) {
-  $("modal").innerHTML = `<div class="box"><b>${esc(msg)}</b><div class="row" style="justify-content:flex-end"><button class="btn ghost" id="mNo">やめる</button><button class="btn danger" id="mYes">削除する</button></div></div>`;
+  $("modal").innerHTML = `<div class="box"><b>${esc(msg)}</b><div class="row" style="justify-content:flex-end"><button class="btn ghost" id="mNo">${tr("やめる", "取消")}</button><button class="btn danger" id="mYes">${tr("削除する", "删除")}</button></div></div>`;
   $("modal").hidden = false;
-  $("mNo").onclick = closeModal; $("mYes").onclick = () => { ok(); closeModal(); toast("削除しました") };
+  $("mNo").onclick = closeModal; $("mYes").onclick = () => { ok(); closeModal(); toast(tr("削除しました", "已删除")) };
 }
 function editModal(id) {
   const r = records.find(x => x.id === id); if (!r) return;
-  const opts = (list, v) => `<option value="">（未選択）</option>` + list.map(s => `<option${s === v ? " selected" : ""}>${esc(s)}</option>`).join("");
+  const opts = (list, v) => `<option value="">${tr("（未選択）", "（未选择）")}</option>` + list.map(s => `<option value="${esc(s)}"${s === v ? " selected" : ""}>${esc(L(s))}</option>`).join("");
   $("modal").innerHTML = `<div class="box">
-    <b>No.${records.indexOf(r) + 1} を編集 <span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></b>
-    <label>車名<input type="text" id="eCar" value="${esc(r.car)}"></label>
-    <label>分類<select id="eCat">${CATS.map(c => `<option value="${c.id}"${c.id === r.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></label>
-    <label>詳細<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
-    <label>道路<select id="eRoad">${opts(ROADS, r.road)}</select></label>
-    <label>シーン<select id="eScene">${opts(SCENES, r.scene)}</select></label>
-    <label>メモ<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
-    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="eNo">閉じる</button><button class="btn primary" id="eOk">保存</button></div></div>`;
+    <b>${tr(`No.${records.indexOf(r) + 1} を編集`, `编辑 No.${records.indexOf(r) + 1}`)} <span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></b>
+    <label>${tr("車名", "车名")}<input type="text" id="eCar" value="${esc(r.car)}"></label>
+    <label>${tr("分類", "分类")}<select id="eCat">${CATS.map(c => `<option value="${c.id}"${c.id === r.cat ? " selected" : ""}>${esc(L(c.name))}</option>`).join("")}</select></label>
+    <label>${tr("詳細", "详细")}<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
+    <label>${tr("道路", "道路")}<select id="eRoad">${opts(ROADS, r.road)}</select></label>
+    <label>${tr("シーン", "场景")}<select id="eScene">${opts(SCENES, r.scene)}</select></label>
+    <label>${tr("メモ", "备注")}<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="eNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="eOk">${tr("保存", "保存")}</button></div></div>`;
   $("modal").hidden = false;
   $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, "") };
   $("eNo").onclick = closeModal;
   $("eOk").onclick = () => {
     r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.road = $("eRoad").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
-    save(); renderTable(); closeModal(); toast("保存しました");
+    save(); renderTable(); closeModal(); toast(tr("保存しました", "已保存"));
   };
 }
 $("clearAll").addEventListener("click", () => {
   if (!records.length) return;
-  confirmModal(`全${records.length}件を削除しますか？（元に戻せません）`, () => { records = []; save(); renderTable() });
+  confirmModal(tr(`全${records.length}件を削除しますか？（元に戻せません）`, `要删除全部${records.length}条记录吗？（无法恢复）`), () => { records = []; save(); renderTable() });
 });
 
-/* ---- copy as TSV ---- */
+/* ---- copy as TSV (in the current language; import accepts either) ---- */
+const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
+  ["緯度", "纬度"], ["経度", "经度"], ["精度(m)", "精度(m)"], ["位置の遅れ(秒)", "定位延迟(秒)"], ["メモ", "备注"], ["Baidu地図", "百度地图"]];
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = ["No", "日付", "時刻", "車名", "分類", "詳細", "道路", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図"];
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, catOf(r.cat).name, r.sub, r.road, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
+  const head = HEAD.map(h => tr(h[0], h[1]));
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 async function copyText(text, okMsg) {
@@ -399,23 +443,27 @@ async function copyText(text, okMsg) {
   catch {
     const ta = $("fallback"); ta.value = text; ta.hidden = false; ta.focus(); ta.select();
     let ok = false; try { ok = document.execCommand("copy") } catch {}
-    toast(ok ? "コピーしました" : "下の枠を選択してコピーしてください");
+    toast(ok ? tr("コピーしました", "已复制") : tr("下の枠を選択してコピーしてください", "请选中下方文本框的内容并复制"));
   }
 }
 $("copy").addEventListener("click", () => {
-  if (!records.length) { toast("記録がありません"); return }
-  copyText(tsv(), `${records.length}件をコピーしました。Excelに貼り付けできます`);
+  if (!records.length) { toast(tr("記録がありません", "没有记录")); return }
+  copyText(tsv(), tr(`${records.length}件をコピーしました。Excelに貼り付けできます`, `已复制${records.length}条，可粘贴到Excel`));
 });
 
 /* ---- summary view ---- */
-const NOCAR = "（車名なし）", NOROAD = "（道路未選択）", NOSCENE = "（シーン未選択）";
+// placeholder keys for empty values; shown through noneLabel()
+const NOCAR = "\u0000car", NOROAD = "\u0000road", NOSCENE = "\u0000scene";
+const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOROAD ? tr("（道路未選択）", "（未选道路）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
 // columns: per category a total plus one per subtype
-const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null, label: "計", head: c.name + " 計" }, ...c.subs.map(s => ({ cat: c.id, sub: s, label: s, head: c.name + " " + s }))]);
+const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null }, ...c.subs.map(s => ({ cat: c.id, sub: s }))]);
+const colLabel = (col) => col.sub == null ? tr("計", "合计") : L(col.sub);
+const colHead = (col) => L(catOf(col.cat).name) + " " + colLabel(col);
 const countCols = (list) => COLS.map(col => list.filter(r => r.cat === col.cat && (col.sub == null || r.sub === col.sub)).length);
 const uniq = (a) => [...new Set(a)];
 function setOptions(sel, values, allLabel) {
   const prev = sel.value;
-  sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option>${esc(v)}</option>`).join("");
+  sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${esc(v)}">${esc(noneLabel(v))}</option>`).join("");
   sel.value = values.includes(prev) ? prev : "";
 }
 function filtered() {
@@ -424,8 +472,8 @@ function filtered() {
 }
 function sumHead(firstCols) {
   const lead = firstCols.map(h => `<th rowspan="2">${h}</th>`).join("");
-  return `<thead><tr>${lead}<th rowspan="2" class="n t">合計</th>${CATS.map(c => `<th class="grp" colspan="${c.subs.length + 1}">${c.name}</th>`).join("")}</tr>
-    <tr>${COLS.map(col => `<th class="n${col.sub == null ? " bl t" : ""}">${esc(col.label)}</th>`).join("")}</tr></thead>`;
+  return `<thead><tr>${lead}<th rowspan="2" class="n t">${tr("合計", "总计")}</th>${CATS.map(c => `<th class="grp" colspan="${c.subs.length + 1}">${esc(L(c.name))}</th>`).join("")}</tr>
+    <tr>${COLS.map(col => `<th class="n${col.sub == null ? " bl t" : ""}">${esc(colLabel(col))}</th>`).join("")}</tr></thead>`;
 }
 const cell = (n, cls = "") => `<td class="n${n ? "" : " z"}${cls}">${n}</td>`;
 function sumRow(lead, list, cls = "") {
@@ -433,8 +481,8 @@ function sumRow(lead, list, cls = "") {
 }
 function groups() {
   const list = filtered();
-  const keys = uniq(list.map(r => fmtDate(r.t) + "\u0000" + (r.car || NOCAR))).sort();
-  return { list, rows: keys.map(k => { const [d, c] = k.split("\u0000"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
+  const keys = uniq(list.map(r => fmtDate(r.t) + "\u0001" + (r.car || NOCAR))).sort();
+  return { list, rows: keys.map(k => { const [d, c] = k.split("\u0001"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
 }
 const sceneList = (list) => list.filter(r => !catOf(r.cat).noScene);
 function sceneGroups(list) {
@@ -443,29 +491,30 @@ function sceneGroups(list) {
 }
 function renderSummary() {
   if ($("sumView").hidden) return;
-  setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), "すべての日付");
-  setOptions($("fRoad"), [...ROADS, NOROAD].filter(v => records.some(r => (r.road || NOROAD) === v)), "すべての道路");
-  setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), "すべての車");
+  setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), tr("すべての日付", "全部日期"));
+  setOptions($("fRoad"), [...ROADS, NOROAD].filter(v => records.some(r => (r.road || NOROAD) === v)), tr("すべての道路", "全部道路"));
+  setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), tr("すべての車", "全部车辆"));
   const { list, rows } = groups();
-  $("sumCount").textContent = `（${list.length}件）`;
+  $("sumCount").textContent = tr(`（${list.length}件）`, `（${list.length}条）`);
   if (!list.length) {
-    const msg = `<tbody><tr><td class="empty">集計する記録がありません。「記録」タブで記録すると、日付と車名ごとにここへ集計されます。</td></tr></tbody>`;
+    const msg = `<tbody><tr><td class="empty">${tr("集計する記録がありません。「記録」タブで記録すると、日付と車名ごとにここへ集計されます。", "没有可统计的记录。在「记录」标签页记录后，会按日期和车名在此统计。")}</td></tr></tbody>`;
     $("sum1").innerHTML = msg; $("sum2").innerHTML = msg; return;
   }
-  $("sum1").innerHTML = sumHead(["日付", "車名"]) + "<tbody>" + rows.map(g => sumRow([g.d, g.c], g.items)).join("") + sumRow(["合計", ""], list, "total") + "</tbody>";
-  $("sum2").innerHTML = sumHead(["シーン"]) + "<tbody>" + sceneGroups(list).map(g => sumRow([g.s], g.items)).join("") + sumRow(["合計"], sceneList(list), "total") + "</tbody>";
+  const total = tr("合計", "总计");
+  $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d, noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>";
+  $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], sceneList(list), "total") + "</tbody>";
 }
 const tsvLine = (a) => a.map(v => String(v ?? "").replace(/[\t\r\n]+/g, " ")).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
 $("copySum1").addEventListener("click", () => {
-  const { list, rows } = groups(); if (!list.length) { toast("記録がありません"); return }
-  const lines = [tsvLine(["日付", "車名", "合計", ...COLS.map(c => c.head)]), ...rows.map(g => tsvLine([g.d, g.c, ...tsvCounts(g.items)])), tsvLine(["合計", "", ...tsvCounts(list)])];
-  copyText(lines.join("\n"), "日付・車名別の集計をコピーしました");
+  const { list, rows } = groups(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
+  const lines = [tsvLine([tr("日付", "日期"), tr("車名", "车名"), tr("合計", "总计"), ...COLS.map(colHead)]), ...rows.map(g => tsvLine([g.d, noneLabel(g.c), ...tsvCounts(g.items)])), tsvLine([tr("合計", "总计"), "", ...tsvCounts(list)])];
+  copyText(lines.join("\n"), tr("日付・車名別の集計をコピーしました", "已复制按日期・车名统计"));
 });
 $("copySum2").addEventListener("click", () => {
-  const list = filtered(); if (!list.length) { toast("記録がありません"); return }
-  const lines = [tsvLine(["シーン", "合計", ...COLS.map(c => c.head)]), ...sceneGroups(list).map(g => tsvLine([g.s, ...tsvCounts(g.items)])), tsvLine(["合計", ...tsvCounts(sceneList(list))])];
-  copyText(lines.join("\n"), "シーン別の集計をコピーしました");
+  const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
+  const lines = [tsvLine([tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)]), ...sceneGroups(list).map(g => tsvLine([noneLabel(g.s), ...tsvCounts(g.items)])), tsvLine([tr("合計", "总计"), ...tsvCounts(sceneList(list))])];
+  copyText(lines.join("\n"), tr("シーン別の集計をコピーしました", "已复制按场景统计"));
 });
 $("fDate").addEventListener("change", renderSummary);
 $("fCar").addEventListener("change", renderSummary);
@@ -484,25 +533,28 @@ function showView(v) {
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
 
-/* ---- import pasted TSV (same columns as 表をコピー; matched by header name) ---- */
+/* ---- import pasted TSV (表をコピー format in either language; matched by header name) ---- */
 function parseImport(text) {
   const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
-  if (!lines.length) return { error: "貼り付けたデータが空です" };
+  if (!lines.length) return { error: tr("貼り付けたデータが空です", "粘贴的数据为空") };
   const cells = (l) => l.split("\t").map(v => v.trim().replace(/^"(.*)"$/, "$1"));
-  const head = cells(lines[0]), col = (name) => head.indexOf(name);
+  const head = cells(lines[0]);
+  const col = (ja) => { const h = HEAD.find(x => x[0] === ja); return head.findIndex(v => v === h[0] || v === h[1]) };
   const need = ["日付", "時刻", "分類"].filter(n => col(n) < 0);
-  if (need.length) return { error: `1行目に見出し（${need.join("・")}）が見つかりません。「表をコピー」したデータを見出しごと貼り付けてください` };
+  if (need.length) return { error: tr(`1行目に見出し（${need.join("・")}）が見つかりません。「表をコピー」したデータを見出しごと貼り付けてください`,
+    `第1行找不到表头（${need.map(n => HEAD.find(x => x[0] === n)[1]).join("・")}）。请连同表头粘贴「复制表格」的数据`) };
   const num = (v) => v === "" || v == null || isNaN(+v) ? null : +v;
+  const ja = (v) => FROM_ZH[v] ?? v;
   const have = new Set(records.map(dupKey));
   const ok = [], bad = []; let dup = 0;
   lines.slice(1).forEach((l, i) => {
     const c = cells(l), get = (n) => (col(n) >= 0 ? c[col(n)] ?? "" : "");
     const d = get("日付").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/), tm = get("時刻").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    const cat = CATS.find(x => x.name === get("分類"));
+    const cat = CATS.find(x => x.name === ja(get("分類")));
     if (!d || !tm || !cat) { bad.push(i + 2); return }
     const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
-    const scene = get("シーン");
-    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: get("詳細"), road: get("道路"),
+    const scene = ja(get("シーン"));
+    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: ja(get("詳細")), road: ja(get("道路")),
       scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")), acc: num(get("精度(m)")), lag: num(get("位置の遅れ(秒)")) };
     if (r.lat == null || r.lon == null) r.lat = r.lon = null;
     if (have.has(dupKey(r))) { dup++; return }
@@ -513,42 +565,47 @@ function parseImport(text) {
 // same event = same second, category, detail and car
 function dupKey(r) { return [fmtDate(r.t), fmtTime(r.t), r.cat, r.sub, r.car || ""].join("|") }
 
-const importSummary = (r) => `${r.ok.length}件を追加` + (r.dup ? `（重複${r.dup}件は除外）` : "") + (r.bad.length ? `。読めなかった行：${r.bad.slice(0, 10).join(", ")}${r.bad.length > 10 ? " ほか" : ""}行目` : "");
+// verb: "add" for the result toast, "can" for the preview line
+function importSummary(r, verb) {
+  const n = r.ok.length, bad = r.bad.slice(0, 10).join(", ") + (r.bad.length > 10 ? tr(" ほか", " 等") : "");
+  return tr(`${n}件を${verb === "add" ? "追加しました" : "追加できます"}` + (r.dup ? `（重複${r.dup}件は除外）` : "") + (r.bad.length ? `。読めなかった行：${bad}行目` : ""),
+    `${verb === "add" ? "已添加" : "可添加"}${n}条` + (r.dup ? `（已排除重复${r.dup}条）` : "") + (r.bad.length ? `。无法读取的行：第${bad}行` : ""));
+}
 function addImported(r) {
   records = records.concat(r.ok).sort((a, b) => a.t - b.t); save(); renderTable(); closeModal();
-  toast(importSummary(r).replace("件を追加", "件を追加しました"));
+  toast(importSummary(r, "add"));
 }
 $("import").addEventListener("click", () => {
   $("modal").innerHTML = `<div class="box">
-    <b>クリップボードからデータを追加しますか？</b>
-    <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を見出しごとコピーしてから「追加する」を押してください。</p>
-    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="cfNo">いいえ</button><button class="btn primary" id="cfYes">追加する</button></div></div>`;
+    <b>${tr("クリップボードからデータを追加しますか？", "要从剪贴板添加数据吗？")}</b>
+    <p class="note">${tr("「表をコピー」したデータ（Excelで編集したものも可）を見出しごとコピーしてから「追加する」を押してください。", "请先连同表头复制「复制表格」的数据（也可以是在Excel中编辑过的），再按「添加」。")}</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="cfNo">${tr("いいえ", "否")}</button><button class="btn primary" id="cfYes">${tr("追加する", "添加")}</button></div></div>`;
   $("modal").hidden = false;
   $("cfNo").onclick = closeModal;
   $("cfYes").onclick = async () => {
     let text = null;
     try { text = await navigator.clipboard.readText() } catch {}
-    if (!text) { openPasteBox("クリップボードを読み取れませんでした。下の枠に貼り付けてください。"); return }
+    if (!text) { openPasteBox(tr("クリップボードを読み取れませんでした。下の枠に貼り付けてください。", "无法读取剪贴板，请粘贴到下方文本框。")); return }
     const r = parseImport(text);
     if (r.ok && r.ok.length) { addImported(r); return }
-    openPasteBox(r.error || ("追加できる記録がありません。" + (r.dup ? `（重複${r.dup}件）` : "")), text);
+    openPasteBox(r.error || (tr("追加できる記録がありません。", "没有可添加的记录。") + (r.dup ? tr(`（重複${r.dup}件）`, `（重复${r.dup}条）`) : "")), text);
   };
 });
 // fallback: paste by hand when the clipboard can't be read or holds something unexpected
 function openPasteBox(msg, text = "") {
   $("modal").innerHTML = `<div class="box">
-    <b>データを取り込む</b>
-    <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。</p>
-    <textarea id="impText" placeholder="ここに貼り付け" aria-label="取り込むデータ"></textarea>
+    <b>${tr("データを取り込む", "导入数据")}</b>
+    <p class="note">${tr("「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。", "请将「复制表格」的数据（也可以是在Excel中编辑过的）连同第1行表头粘贴到下方文本框。日期时间、分类、详细、车名都相同的记录视为重复，不会导入。")}</p>
+    <textarea id="impText" placeholder="${tr("ここに貼り付け", "粘贴到这里")}" aria-label="${tr("取り込むデータ", "要导入的数据")}"></textarea>
     <p class="note" id="impInfo">${esc(msg)}</p>
-    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="impNo">閉じる</button><button class="btn primary" id="impOk" disabled>追加する</button></div></div>`;
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="impNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="impOk" disabled>${tr("追加する", "添加")}</button></div></div>`;
   $("modal").hidden = false;
   let parsed = null;
   const check = () => {
     const v = $("impText").value;
     parsed = v.trim() ? parseImport(v) : null;
     $("impOk").disabled = !(parsed && parsed.ok && parsed.ok.length);
-    $("impInfo").textContent = !parsed ? "" : parsed.error ? parsed.error : importSummary(parsed).replace("件を追加", "件を追加できます");
+    $("impInfo").textContent = !parsed ? "" : parsed.error ? parsed.error : importSummary(parsed, "can");
   };
   $("impText").addEventListener("input", check);
   $("impNo").onclick = closeModal;
@@ -561,7 +618,7 @@ function openPasteBox(msg, text = "") {
 let tt;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 2200) }
 
-renderTable(); renderGps();
+applyLang();
 </script>
 
 </body></html>
