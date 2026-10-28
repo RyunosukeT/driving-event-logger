@@ -76,6 +76,7 @@ table.sum td.t, table.sum th.t { font-weight: 700 }
 .chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) } .chip[data-c="una"] { background: var(--una) } .chip[data-c="oth"] { background: var(--oth) }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 .btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
+.btn.sm { padding: 6px 12px; min-height: 36px; font-size: 13px }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
 .btn.danger { color: var(--bad); border-color: var(--bad) }
 .btn.ghost { background: transparent }
@@ -144,7 +145,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <p class="label" style="margin:0">記録一覧 <span id="count"></span></p>
       <div class="row">
         <button class="btn primary" id="copy">表をコピー（Excel貼付用）</button>
-        <button class="btn" id="import">貼り付けて取り込む</button>
+        <button class="btn sm" id="import" title="コピーしたデータを貼り付けて取り込む">取込</button>
         <button class="btn danger ghost" id="clearAll">全削除</button>
       </div>
     </div>
@@ -514,7 +515,7 @@ function dupKey(r) { return [fmtDate(r.t), fmtTime(r.t), r.cat, r.sub, r.car || 
 
 $("import").addEventListener("click", async () => {
   $("modal").innerHTML = `<div class="box">
-    <b>貼り付けて取り込む</b>
+    <b>データを取り込む</b>
     <p class="note">「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。</p>
     <textarea id="impText" placeholder="ここに貼り付け" aria-label="取り込むデータ"></textarea>
     <p class="note" id="impInfo"></p>
