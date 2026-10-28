@@ -134,7 +134,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <button class="btn primary" id="done">記録を確定</button>
       <button class="btn danger ghost" id="cancel">取り消す</button>
     </div>
-    <p class="note" style="margin-top:10px">②〜④を選ばずに次の分類を押しても、この記録は保存されたまま残ります（あとで表から編集できます）。</p>
+    <p class="note" style="margin-top:10px">「記録を確定」を押すまでは記録されません。確定せずに分類ボタンやタブを切り替えると、入力中の内容は破棄されます。</p>
   </section>
 
   <section id="logView">
@@ -191,7 +191,7 @@ const $ = (id) => document.getElementById(id);
 
 let records = load();
 records.forEach(r => { if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene] });
-let current = null;   // id of record being filled
+let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
 function load() { try { return JSON.parse(localStorage.getItem(KEY) || "[]") } catch { return [] } }
@@ -248,24 +248,24 @@ $("cats").addEventListener("click", (e) => {
   if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
   else if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition((p) => {
-      const r = records.find(x => x.id === rec.id); if (r && r.lat == null) { applyFix(r, p); save(); renderTable() }
+      if (rec.lat != null) return;
+      applyFix(rec, p);
+      if (records.includes(rec)) { save(); renderTable() } else if (draft === rec) openDetail();
     }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   }
-  records.push(rec); save();
-  current = rec.id;
+  draft = rec; // replaces any unconfirmed draft
   if (navigator.vibrate) navigator.vibrate(40);
   openDetail(true);
-  renderTable();
 });
 
 /* ---- step 2/3 ---- */
 // scrollToTop: only when the panel opens; picking options must not jump the page back up
 function openDetail(scrollToTop = false) {
-  const r = records.find(x => x.id === current);
+  const r = draft;
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.indexOf(r) + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "· 位置取得中…"}</span>`;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "· 位置取得中…"}</span>`;
   $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
   $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
@@ -276,8 +276,8 @@ function openDetail(scrollToTop = false) {
   if (top < 0 || top > innerHeight * 0.6) scrollTo({ top: scrollY + top, behavior: "smooth" });
 }
 function setField(field, v) {
-  const r = records.find(x => x.id === current); if (!r) return;
-  r[field] = r[field] === v ? "" : v; save(); openDetail(); renderTable();
+  const r = draft; if (!r) return;
+  r[field] = r[field] === v ? "" : v; openDetail();
   // after a scene is chosen, bring the confirm button into easy reach
   if ((field === "scene" && r.scene) || (field === "sub" && r.sub && catOf(r.cat).noScene)) {
     const b = $("done").getBoundingClientRect();
@@ -287,10 +287,14 @@ function setField(field, v) {
 $("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
 $("roads").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("road", b.dataset.v) });
 $("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v) });
-$("memo").addEventListener("input", () => { const r = records.find(x => x.id === current); if (r) { r.memo = $("memo").value; save(); renderTable() } });
-function finish() { current = null; $("stepDetail").hidden = true; toast("記録しました"); renderTable() }
+$("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").value });
+function finish() {
+  if (!draft) return;
+  records.push(draft); save(); draft = null;
+  $("stepDetail").hidden = true; toast("記録しました"); renderTable();
+}
 $("done").addEventListener("click", finish);
-$("cancel").addEventListener("click", () => { records = records.filter(x => x.id !== current); save(); current = null; $("stepDetail").hidden = true; renderTable(); toast("取り消しました") });
+$("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast("取り消しました") });
 
 /* ---- table ---- */
 function renderTable() {
@@ -312,7 +316,7 @@ $("tbody").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const id = b.closest("tr").dataset.id;
   if (b.dataset.a === "edit") editModal(id);
-  else confirmModal("この記録を削除しますか？", () => { records = records.filter(x => x.id !== id); if (current === id) { current = null; $("stepDetail").hidden = true } save(); renderTable() });
+  else confirmModal("この記録を削除しますか？", () => { records = records.filter(x => x.id !== id); save(); renderTable() });
 });
 
 /* ---- modals ---- */
@@ -340,12 +344,12 @@ function editModal(id) {
   $("eNo").onclick = closeModal;
   $("eOk").onclick = () => {
     r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.road = $("eRoad").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
-    save(); renderTable(); if (current === id) openDetail(); closeModal(); toast("保存しました");
+    save(); renderTable(); closeModal(); toast("保存しました");
   };
 }
 $("clearAll").addEventListener("click", () => {
   if (!records.length) return;
-  confirmModal(`全${records.length}件を削除しますか？（元に戻せません）`, () => { records = []; current = null; $("stepDetail").hidden = true; save(); renderTable() });
+  confirmModal(`全${records.length}件を削除しますか？（元に戻せません）`, () => { records = []; save(); renderTable() });
 });
 
 /* ---- copy as TSV ---- */
@@ -436,10 +440,11 @@ $("fRoad").addEventListener("change", renderSummary);
 function showView(v) {
   const sum = v === "sum";
   $("sumView").hidden = !sum; $("logView").hidden = sum; $("stepCat").hidden = sum;
-  $("stepDetail").hidden = sum || !current;
+  draft = null; // switching views drops an unconfirmed record
+  $("stepDetail").hidden = true;
   $("fallback").hidden = true;
   document.querySelectorAll("#tabs button").forEach(b => { const on = b.dataset.v === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on) });
-  if (sum) renderSummary(); else if (current) openDetail(true);
+  if (sum) renderSummary();
   scrollTo({ top: 0 });
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) showView(b.dataset.v) });
