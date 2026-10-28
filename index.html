@@ -1,0 +1,312 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>走行評価イベントロガー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-column cockpit. Sticky status bar, big tap targets (step 1 → 2 → 3), then the log table. */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #15202b; --muted: #5b6875; --line: #d3dae0;
+  --accent: #0a6c8a; --accent-ink: #ffffff;
+  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8;
+  --ok: #1d7a46; --warn: #b26b00; --bad: #b3261e;
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
+  --accent: #3fb3d6; --accent-ink: #06151b;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0;
+  --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
+  --accent: #3fb3d6; --accent-ink: #06151b;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0;
+  --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  -webkit-tap-highlight-color: transparent }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel) }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 40px; display: grid; gap: 16px }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px }
+header .in { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px }
+h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin-right: auto }
+.clock { font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums }
+.gps { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted) }
+.gps[data-s="ok"] .dot { background: var(--ok) } .gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
+.wrap > * { min-width: 0 }
+.label { font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px }
+section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px }
+.grid { display: grid; gap: 10px }
+.g3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
+.gs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)) }
+button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
+.in2 { max-width: 860px; margin: 8px auto 0 }
+.cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
+.cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
+.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) }
+:root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
+.cat:active { transform: scale(.97) }
+.opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
+.opt.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
+.cur b { font-size: 17px }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff }
+.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.btn.danger { color: var(--bad); border-color: var(--bad) }
+.btn.ghost { background: transparent }
+input[type=text], select { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 44px; width: 100% }
+.memo { flex: 1 1 220px; min-width: 0 }
+.step + .step { margin-top: 14px }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel) }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left }
+th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0 }
+td.num { font-family: var(--font-mono); font-size: 12px }
+td.memo-c { white-space: normal; min-width: 140px }
+tr.pending td { background: color-mix(in srgb, var(--warn) 12%, transparent) }
+td a { color: var(--accent) }
+.act button { padding: 6px 10px; font-size: 12px; min-height: 34px }
+.empty { padding: 24px; text-align: center; color: var(--muted) }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px) }
+.modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
+.modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
+.modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
+.note { font-size: 12px; color: var(--muted); margin: 0 }
+textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
+@media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
+@media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
+</style>
+
+</head><body>
+<header><div class="in">
+  <h1>走行評価イベントロガー</h1>
+  <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText">位置情報 取得中…</span></span>
+  <span class="clock" id="clock">--:--:--</span>
+</div>
+<div class="in2" id="stepCat">
+  <div class="grid g3" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
+</div></header>
+
+<div class="wrap">
+
+  <section class="panel" id="stepDetail" hidden>
+    <div class="cur" id="curInfo"></div>
+    <div class="step">
+      <p class="label">② 詳細</p>
+      <div class="grid gs" id="subs"></div>
+    </div>
+    <div class="step">
+      <p class="label">③ シーン</p>
+      <div class="grid gs" id="scenes"></div>
+    </div>
+    <div class="step row">
+      <input type="text" id="memo" class="memo" placeholder="メモ（任意）" autocomplete="off">
+      <button class="btn primary" id="done">記録を確定</button>
+      <button class="btn danger ghost" id="cancel">取り消す</button>
+    </div>
+    <p class="note" style="margin-top:10px">②③を選ばずに次の分類を押しても、この記録は保存されたまま残ります（あとで表から編集できます）。</p>
+  </section>
+
+  <section>
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <p class="label" style="margin:0">記録一覧 <span id="count"></span></p>
+      <div class="row">
+        <button class="btn primary" id="copy">表をコピー（Excel貼付用）</button>
+        <button class="btn danger ghost" id="clearAll">全削除</button>
+      </div>
+    </div>
+    <div class="tablebox"><table>
+      <thead><tr><th>No</th><th>日付</th><th>時刻</th><th>分類</th><th>詳細</th><th>シーン</th><th>地図</th><th>緯度</th><th>経度</th><th>精度(m)</th><th>位置の遅れ(秒)</th><th>メモ</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+    <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const CATS = [
+  { id: "safe", name: "安全T/O", subs: ["危険度 高", "危険度 中", "危険度 低"] },
+  { id: "eff",  name: "効率T/O", subs: ["発進しない", "加速しない"] },
+  { id: "viol", name: "交通違反", subs: ["信号無視", "実線を踏む", "速度超過"] },
+];
+const SCENES = ["巡行・発進", "追従加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "追い越し", "割り込まれ", "横断", "ラウンドアバウト"];
+const KEY = "drive-event-logger-v1";
+const $ = (id) => document.getElementById(id);
+
+let records = load();
+let current = null;   // id of record being filled
+let fix = null;       // latest GeolocationPosition
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY) || "[]") } catch { return [] } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(records)) } catch { toast("この端末では保存できません（プライベートモード等）") } }
+const pad = (n) => String(n).padStart(2, "0");
+const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
+const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
+const catOf = (id) => CATS.find(c => c.id === id);
+// Baidu Maps marker link. GPS is WGS84; coord_type=wgs84 lets Baidu convert to BD-09 so the pin lands correctly.
+const baiduUrl = (r) => `https://api.map.baidu.com/marker?location=${r.lat},${r.lon}&coord_type=wgs84&title=${encodeURIComponent("No." + (records.indexOf(r) + 1) + " " + catOf(r.cat).name)}&content=${encodeURIComponent(fmtDate(r.t) + " " + fmtTime(r.t) + " " + [r.sub, r.scene].filter(Boolean).join(" / "))}&output=html&src=drive-event-logger`;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+/* ---- clock & GPS ---- */
+setInterval(() => { $("clock").textContent = fmtTime(Date.now()); renderGps() }, 500);
+
+function renderGps() {
+  const el = $("gps");
+  if (!("geolocation" in navigator)) { el.dataset.s = "none"; $("gpsText").textContent = "位置情報 非対応"; return }
+  if (gpsError) { el.dataset.s = "none"; $("gpsText").textContent = gpsError; return }
+  if (!fix) return;
+  const age = (Date.now() - fix.timestamp) / 1000, acc = fix.coords.accuracy;
+  el.dataset.s = age < 10 && acc <= 30 ? "ok" : "weak";
+  $("gpsText").textContent = `±${Math.round(acc)}m · ${age < 1 ? "最新" : Math.round(age) + "秒前"}`;
+}
+let gpsError = "";
+if ("geolocation" in navigator) {
+  navigator.geolocation.watchPosition(
+    (p) => { fix = p; gpsError = ""; renderGps() },
+    (e) => { gpsError = e.code === 1 ? "位置情報 許可されていません" : "位置情報 取得できません"; renderGps() },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+  );
+}
+// keep the screen on while logging (ignored where unsupported)
+async function wake() { try { await navigator.wakeLock?.request("screen") } catch {} }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) wake() });
+wake();
+
+function applyFix(rec, p) {
+  rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7);
+  rec.acc = Math.round(p.coords.accuracy);
+  rec.lag = Math.round((p.timestamp - rec.t) / 100) / 10; // >0: fix came after tap, <0: before
+}
+
+/* ---- step 1: category ---- */
+$("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}">${c.name}<small>${c.subs.join(" / ")}</small></button>`).join("");
+$("cats").addEventListener("click", (e) => {
+  const b = e.target.closest(".cat"); if (!b) return;
+  const t = Date.now();
+  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, sub: "", scene: "", memo: "", lat: null, lon: null, acc: null, lag: null };
+  if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
+  else if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition((p) => {
+      const r = records.find(x => x.id === rec.id); if (r && r.lat == null) { applyFix(r, p); save(); renderTable() }
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+  }
+  records.push(rec); save();
+  current = rec.id;
+  if (navigator.vibrate) navigator.vibrate(40);
+  openDetail();
+  renderTable();
+});
+
+/* ---- step 2/3 ---- */
+function openDetail() {
+  const r = records.find(x => x.id === current);
+  if (!r) { $("stepDetail").hidden = true; return }
+  const c = catOf(r.cat);
+  $("stepDetail").hidden = false;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.indexOf(r) + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>` : "· 位置取得中…"}</span>`;
+  $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
+  $("scenes").innerHTML = SCENES.map(s => `<button class="opt${r.scene === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
+  $("memo").value = r.memo || "";
+  const top = $("stepDetail").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8;
+  if (top < 0 || top > innerHeight * 0.6) scrollTo({ top: scrollY + top, behavior: "smooth" });
+}
+function setField(field, v) {
+  const r = records.find(x => x.id === current); if (!r) return;
+  r[field] = r[field] === v ? "" : v; save(); openDetail(); renderTable();
+  if (field === "scene" && r.sub && r.scene) finish();
+}
+$("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
+$("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v) });
+$("memo").addEventListener("input", () => { const r = records.find(x => x.id === current); if (r) { r.memo = $("memo").value; save(); renderTable() } });
+function finish() { current = null; $("stepDetail").hidden = true; toast("記録しました"); renderTable() }
+$("done").addEventListener("click", finish);
+$("cancel").addEventListener("click", () => { records = records.filter(x => x.id !== current); save(); current = null; $("stepDetail").hidden = true; renderTable(); toast("取り消しました") });
+
+/* ---- table ---- */
+function renderTable() {
+  $("count").textContent = records.length ? `（${records.length}件）` : "";
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="13" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
+  $("tbody").innerHTML = records.map((r, i) => {
+    const c = catOf(r.cat), pending = !r.sub || !r.scene;
+    const map = r.lat != null ? `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>` : "—";
+    return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
+      <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td>
+      <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.scene) || "—"}</td>
+      <td>${map}</td><td class="num">${r.lat ?? "—"}</td><td class="num">${r.lon ?? "—"}</td><td class="num">${r.acc ?? "—"}</td><td class="num">${r.lag ?? "—"}</td>
+      <td class="memo-c">${esc(r.memo)}</td>
+      <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">編集</button><button data-a="del">削除</button></div></td></tr>`;
+  }).join("");
+}
+$("tbody").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const id = b.closest("tr").dataset.id;
+  if (b.dataset.a === "edit") editModal(id);
+  else confirmModal("この記録を削除しますか？", () => { records = records.filter(x => x.id !== id); if (current === id) { current = null; $("stepDetail").hidden = true } save(); renderTable() });
+});
+
+/* ---- modals ---- */
+function closeModal() { $("modal").hidden = true; $("modal").innerHTML = "" }
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal() });
+function confirmModal(msg, ok) {
+  $("modal").innerHTML = `<div class="box"><b>${esc(msg)}</b><div class="row" style="justify-content:flex-end"><button class="btn ghost" id="mNo">やめる</button><button class="btn danger" id="mYes">削除する</button></div></div>`;
+  $("modal").hidden = false;
+  $("mNo").onclick = closeModal; $("mYes").onclick = () => { ok(); closeModal(); toast("削除しました") };
+}
+function editModal(id) {
+  const r = records.find(x => x.id === id); if (!r) return;
+  const opts = (list, v) => `<option value="">（未選択）</option>` + list.map(s => `<option${s === v ? " selected" : ""}>${esc(s)}</option>`).join("");
+  $("modal").innerHTML = `<div class="box">
+    <b>No.${records.indexOf(r) + 1} を編集 <span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></b>
+    <label>分類<select id="eCat">${CATS.map(c => `<option value="${c.id}"${c.id === r.cat ? " selected" : ""}>${c.name}</option>`).join("")}</select></label>
+    <label>詳細<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
+    <label>シーン<select id="eScene">${opts(SCENES, r.scene)}</select></label>
+    <label>メモ<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="eNo">閉じる</button><button class="btn primary" id="eOk">保存</button></div></div>`;
+  $("modal").hidden = false;
+  $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, "") };
+  $("eNo").onclick = closeModal;
+  $("eOk").onclick = () => {
+    r.cat = $("eCat").value; r.sub = $("eSub").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
+    save(); renderTable(); if (current === id) openDetail(); closeModal(); toast("保存しました");
+  };
+}
+$("clearAll").addEventListener("click", () => {
+  if (!records.length) return;
+  confirmModal(`全${records.length}件を削除しますか？（元に戻せません）`, () => { records = []; current = null; $("stepDetail").hidden = true; save(); renderTable() });
+});
+
+/* ---- copy as TSV ---- */
+function tsv() {
+  const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
+  const head = ["No", "日付", "時刻", "分類", "詳細", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図"];
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
+  return [head.join("\t"), ...rows].join("\n");
+}
+$("copy").addEventListener("click", async () => {
+  if (!records.length) { toast("記録がありません"); return }
+  const text = tsv();
+  try { await navigator.clipboard.writeText(text); $("fallback").hidden = true; toast(`${records.length}件をコピーしました。Excelに貼り付けできます`) }
+  catch {
+    const ta = $("fallback"); ta.value = text; ta.hidden = false; ta.focus(); ta.select();
+    let ok = false; try { ok = document.execCommand("copy") } catch {}
+    toast(ok ? "コピーしました" : "下の枠を選択してコピーしてください");
+  }
+});
+
+/* ---- toast ---- */
+let tt;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 2200) }
+
+renderTable(); renderGps();
+</script>
+
+</body></html>
