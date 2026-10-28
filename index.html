@@ -152,8 +152,8 @@ const pad = (n) => String(n).padStart(2, "0");
 const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
 const catOf = (id) => CATS.find(c => c.id === id);
-// Baidu Maps marker link. GPS is WGS84; coord_type=wgs84 lets Baidu convert to BD-09 so the pin lands correctly.
-const baiduUrl = (r) => `https://api.map.baidu.com/marker?location=${r.lat},${r.lon}&coord_type=wgs84&title=${encodeURIComponent("No." + (records.indexOf(r) + 1) + " " + catOf(r.cat).name)}&content=${encodeURIComponent(fmtDate(r.t) + " " + fmtTime(r.t) + " " + [r.sub, r.scene].filter(Boolean).join(" / "))}&output=html&src=drive-event-logger`;
+// Google Maps pin link (GPS coordinates are WGS84, which Google Maps uses as-is).
+const mapUrl = (r) => `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- clock & GPS ---- */
@@ -212,7 +212,7 @@ function openDetail() {
   if (!r) { $("stepDetail").hidden = true; return }
   const c = catOf(r.cat);
   $("stepDetail").hidden = false;
-  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.indexOf(r) + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>` : "· 位置取得中…"}</span>`;
+  $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.indexOf(r) + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "· 位置取得中…"}</span>`;
   $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("scenes").innerHTML = SCENES.map(s => `<button class="opt${r.scene === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("memo").value = r.memo || "";
@@ -237,7 +237,7 @@ function renderTable() {
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="13" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), pending = !r.sub || !r.scene;
-    const map = r.lat != null ? `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">Baidu地図</a>` : "—";
+    const map = r.lat != null ? `<a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td>
       <td><span class="chip" data-c="${c.id}">${c.name}</span></td><td>${esc(r.sub) || "—"}</td><td>${esc(r.scene) || "—"}</td>
@@ -287,8 +287,8 @@ $("clearAll").addEventListener("click", () => {
 /* ---- copy as TSV ---- */
 function tsv() {
   const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
-  const head = ["No", "日付", "時刻", "分類", "詳細", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Baidu地図"];
-  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
+  const head = ["No", "日付", "時刻", "分類", "詳細", "シーン", "緯度", "経度", "精度(m)", "位置の遅れ(秒)", "メモ", "Googleマップ"];
+  const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), catOf(r.cat).name, r.sub, r.scene, r.lat ?? "", r.lon ?? "", r.acc ?? "", r.lag ?? "", r.memo, r.lat != null ? mapUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
 }
 $("copy").addEventListener("click", async () => {
