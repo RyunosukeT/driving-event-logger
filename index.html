@@ -184,7 +184,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 
 <script>
 const CATS = [
-  { id: "safe", name: "安全T/O", subs: ["危険度 高", "危険度 中", "危険度 低"] },
+  { id: "safe", name: "安全T/O", subs: ["危険度-高", "危険度-中", "危険度-低"] },
   { id: "eff",  name: "効率T/O", subs: ["発進しない", "加速しない", "車線間違い"] },
   { id: "viol", name: "交通違反", subs: ["信号無視", "実線を踏む", "速度超過", "歩行者保護違反"] },
   { id: "una",  name: "不要作動", subs: ["不要減速", "不要加速", "不要操舵"] },
@@ -194,10 +194,12 @@ const ROADS = ["高速道", "一般道"];
 const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビLC", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
 // scene names used by earlier versions, mapped to their current names
 const SCENE_RENAMES = { "巡行・発進": "巡行", "追従加速": "発進・加速", "割り込まれ": "受動回避", "ナビレーンチェンジ": "ナビLC" };
+// detail names used by earlier versions (Japanese and Chinese), mapped to their current names
+const SUB_RENAMES = { "危険度 高": "危険度-高", "危険度 中": "危険度-中", "危険度 低": "危険度-低", "危险度 高": "危険度-高", "危险度 中": "危険度-中", "危险度 低": "危険度-低" };
 // Records always store the Japanese names; ZH translates them (and fixed labels) for display.
 const ZH = {
   "安全T/O": "安全接管", "効率T/O": "效率接管", "交通違反": "交通违规", "不要作動": "误动作", "その他": "其他",
-  "危険度 高": "危险度 高", "危険度 中": "危险度 中", "危険度 低": "危险度 低",
+  "危険度-高": "危险度-高", "危険度-中": "危险度-中", "危険度-低": "危险度-低",
   "発進しない": "不起步", "加速しない": "不加速", "車線間違い": "车道错误",
   "信号無視": "闯红灯", "実線を踏む": "压实线", "速度超過": "超速", "歩行者保護違反": "未礼让行人",
   "不要減速": "误减速", "不要加速": "误加速", "不要操舵": "误转向",
@@ -219,7 +221,7 @@ const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
 const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/detail/road/scene names
 
 let records = load();
-records.forEach(r => { if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene] });
+records.forEach(r => { if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene]; if (SUB_RENAMES[r.sub]) r.sub = SUB_RENAMES[r.sub] });
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
@@ -554,7 +556,7 @@ function parseImport(text) {
     if (!d || !tm || !cat) { bad.push(i + 2); return }
     const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
     const scene = ja(get("シーン"));
-    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: ja(get("詳細")), road: ja(get("道路")),
+    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: SUB_RENAMES[get("詳細")] || ja(get("詳細")), road: ja(get("道路")),
       scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")), acc: num(get("精度(m)")), lag: num(get("位置の遅れ(秒)")) };
     if (r.lat == null || r.lon == null) r.lat = r.lon = null;
     if (have.has(dupKey(r))) { dup++; return }
