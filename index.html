@@ -454,8 +454,10 @@ const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名
   // not in the copy any more; still read when importing older copies
   ["緯度", "纬度"], ["経度", "经度"]];
 const COPY_COLS = 10;
+// empty cells are written as "-" in every copied table (import reads "-" back as empty)
+const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-";
 function tsv() {
-  const clean = (s) => String(s ?? "").replace(/[\t\r\n]+/g, " ");
+  const clean = cellText;
   const head = HEAD.slice(0, COPY_COLS).map(h => tr(h[0], h[1]));
   const rows = records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""].map(clean).join("\t"));
   return [head.join("\t"), ...rows].join("\n");
@@ -526,7 +528,7 @@ function renderSummary() {
   $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d, noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>";
   $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], sceneList(list), "total") + "</tbody>";
 }
-const tsvLine = (a) => a.map(v => String(v ?? "").replace(/[\t\r\n]+/g, " ")).join("\t");
+const tsvLine = (a) => a.map(cellText).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
 $("copySum1").addEventListener("click", () => {
   const { list, rows } = groups(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
@@ -570,7 +572,7 @@ function parseImport(text) {
   const have = new Set(records.map(dupKey));
   const ok = [], bad = []; let dup = 0;
   lines.slice(1).forEach((l, i) => {
-    const c = cells(l), get = (n) => (col(n) >= 0 ? c[col(n)] ?? "" : "");
+    const c = cells(l), get = (n) => { const v = col(n) >= 0 ? c[col(n)] ?? "" : ""; return v === "-" ? "" : v };
     const d = get("日付").match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/), tm = get("時刻").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     const cat = CATS.find(x => x.name === ja(get("分類")));
     if (!d || !tm || !cat) { bad.push(i + 2); return }
