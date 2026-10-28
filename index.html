@@ -7,7 +7,7 @@
 :root {
   --bg: #eef1f3; --panel: #ffffff; --fg: #15202b; --muted: #5b6875; --line: #d3dae0;
   --accent: #0a6c8a; --accent-ink: #ffffff;
-  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8; --oth: #4f5d6b;
+  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8; --una: #9c3d8f; --oth: #4f5d6b;
   --ok: #1d7a46; --warn: #b26b00; --bad: #b3261e;
   --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -15,12 +15,12 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --oth: #7d8d9c;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --una: #d77ccb; --oth: #7d8d9c;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --oth: #7d8d9c;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --una: #d77ccb; --oth: #7d8d9c;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
@@ -40,7 +40,7 @@ h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px }
 .grid { display: grid; gap: 10px }
 .g3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
-.g4 { grid-template-columns: repeat(4, minmax(0,1fr)) }
+.g5 { grid-template-columns: repeat(5, minmax(0,1fr)) }
 .g2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
 .gs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)) }
 button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
@@ -64,7 +64,7 @@ table.sum tr.total td { font-weight: 700; background: var(--bg) }
 table.sum td.t, table.sum th.t { font-weight: 700 }
 .cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
-.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) } .cat[data-c="oth"] { background: var(--oth) }
+.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) } .cat[data-c="una"] { background: var(--una) } .cat[data-c="oth"] { background: var(--oth) }
 :root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
 .cat:active { transform: scale(.97) }
 .opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
@@ -72,7 +72,7 @@ table.sum td.t, table.sum th.t { font-weight: 700 }
 .cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
 .cur b { font-size: 17px }
 .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff }
-.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) } .chip[data-c="oth"] { background: var(--oth) }
+.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) } .chip[data-c="una"] { background: var(--una) } .chip[data-c="oth"] { background: var(--oth) }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 .btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
@@ -97,7 +97,8 @@ td a { color: var(--accent) }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
 .note { font-size: 12px; color: var(--muted); margin: 0 }
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
-@media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
+@media (max-width: 420px) { .cat { min-height: 64px; font-size: 14px; padding: 4px } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
+@media (max-width: 380px) { .cat { font-size: 13px; padding: 2px; letter-spacing: -.02em; white-space: nowrap } }
 @media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
 </style>
 
@@ -110,7 +111,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 <div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名">
   <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true">記録</button><button data-v="sum" aria-pressed="false">集計</button></nav></div>
 <div class="in2" id="stepCat">
-  <div class="grid g4" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
+  <div class="grid g5" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
 </div></header>
 
 <div class="wrap">
@@ -179,6 +180,7 @@ const CATS = [
   { id: "safe", name: "安全T/O", subs: ["危険度 高", "危険度 中", "危険度 低"] },
   { id: "eff",  name: "効率T/O", subs: ["発進しない", "加速しない"] },
   { id: "viol", name: "交通違反", subs: ["信号無視", "実線を踏む", "速度超過", "歩行者保護違反"] },
+  { id: "una",  name: "不要作動", subs: ["不要減速", "不要加速", "不要操舵"] },
   { id: "oth",  name: "その他", subs: ["計測開始", "計測終了", "システム退出"], noScene: true }, // no road / scene step
 ];
 const ROADS = ["高速道", "一般道"];
