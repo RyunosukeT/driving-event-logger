@@ -7,7 +7,7 @@
 :root {
   --bg: #eef1f3; --panel: #ffffff; --fg: #15202b; --muted: #5b6875; --line: #d3dae0;
   --accent: #0a6c8a; --accent-ink: #ffffff;
-  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8;
+  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8; --oth: #4f5d6b;
   --ok: #1d7a46; --warn: #b26b00; --bad: #b3261e;
   --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -15,12 +15,12 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --oth: #7d8d9c;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0;
+  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --oth: #7d8d9c;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
@@ -40,6 +40,7 @@ h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin
 section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px }
 .grid { display: grid; gap: 10px }
 .g3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
+.g4 { grid-template-columns: repeat(4, minmax(0,1fr)) }
 .g2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
 .gs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)) }
 button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel) }
@@ -63,7 +64,7 @@ table.sum tr.total td { font-weight: 700; background: var(--bg) }
 table.sum td.t, table.sum th.t { font-weight: 700 }
 .cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
-.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) }
+.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) } .cat[data-c="oth"] { background: var(--oth) }
 :root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
 .cat:active { transform: scale(.97) }
 .opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
@@ -71,7 +72,7 @@ table.sum td.t, table.sum th.t { font-weight: 700 }
 .cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
 .cur b { font-size: 17px }
 .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff }
-.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) }
+.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) } .chip[data-c="oth"] { background: var(--oth) }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 .btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
@@ -109,7 +110,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 <div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" autocomplete="off" aria-label="車名">
   <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true">記録</button><button data-v="sum" aria-pressed="false">集計</button></nav></div>
 <div class="in2" id="stepCat">
-  <div class="grid g3" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
+  <div class="grid g4" id="cats" aria-label="① イベント分類（押した時刻と位置を記録）"></div>
 </div></header>
 
 <div class="wrap">
@@ -120,11 +121,11 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       <p class="label">② 詳細</p>
       <div class="grid gs" id="subs"></div>
     </div>
-    <div class="step">
+    <div class="step" id="stepRoad">
       <p class="label">③ 道路</p>
       <div class="grid g2" id="roads"></div>
     </div>
-    <div class="step">
+    <div class="step" id="stepScene">
       <p class="label">④ シーン</p>
       <div class="grid gs" id="scenes"></div>
     </div>
@@ -178,6 +179,7 @@ const CATS = [
   { id: "safe", name: "安全T/O", subs: ["危険度 高", "危険度 中", "危険度 低"] },
   { id: "eff",  name: "効率T/O", subs: ["発進しない", "加速しない"] },
   { id: "viol", name: "交通違反", subs: ["信号無視", "実線を踏む", "速度超過", "歩行者保護違反"] },
+  { id: "oth",  name: "その他", subs: ["計測開始", "計測終了", "システム退出"], noScene: true }, // no road / scene step
 ];
 const ROADS = ["高速道", "一般道"];
 const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビレーンチェンジ", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
@@ -265,6 +267,7 @@ function openDetail(scrollToTop = false) {
   $("stepDetail").hidden = false;
   $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${c.name}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.indexOf(r) + 1} ${r.lat != null ? `· ${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} · <a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "· 位置取得中…"}</span>`;
   $("subs").innerHTML = c.subs.map(s => `<button class="opt${r.sub === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
+  $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
   $("roads").innerHTML = ROADS.map(s => `<button class="opt${r.road === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("scenes").innerHTML = SCENES.map(s => `<button class="opt${r.scene === s ? " sel" : ""}" data-v="${esc(s)}">${esc(s)}</button>`).join("");
   $("memo").value = r.memo || "";
@@ -276,7 +279,7 @@ function setField(field, v) {
   const r = records.find(x => x.id === current); if (!r) return;
   r[field] = r[field] === v ? "" : v; save(); openDetail(); renderTable();
   // after a scene is chosen, bring the confirm button into easy reach
-  if (field === "scene" && r.scene) {
+  if ((field === "scene" && r.scene) || (field === "sub" && r.sub && catOf(r.cat).noScene)) {
     const b = $("done").getBoundingClientRect();
     if (b.bottom > innerHeight - 24) scrollTo({ top: scrollY + b.bottom - innerHeight + 96, behavior: "smooth" });
   }
@@ -295,7 +298,7 @@ function renderTable() {
   $("count").textContent = records.length ? `（${records.length}件）` : "";
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="15" class="empty">まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
-    const c = catOf(r.cat), pending = !r.sub || !r.road || !r.scene;
+    const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
     const map = r.lat != null ? `<a href="${esc(mapUrl(r))}" target="_blank" rel="noopener">Googleマップ</a>` : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
@@ -394,7 +397,9 @@ function groups() {
   const keys = uniq(list.map(r => fmtDate(r.t) + "\u0000" + (r.car || NOCAR))).sort();
   return { list, rows: keys.map(k => { const [d, c] = k.split("\u0000"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
 }
+const sceneList = (list) => list.filter(r => !catOf(r.cat).noScene);
 function sceneGroups(list) {
+  list = sceneList(list);
   return [...SCENES, NOSCENE].map(s => ({ s, items: list.filter(r => (r.scene || NOSCENE) === s) })).filter(g => g.s !== NOSCENE || g.items.length);
 }
 function renderSummary() {
@@ -409,7 +414,7 @@ function renderSummary() {
     $("sum1").innerHTML = msg; $("sum2").innerHTML = msg; return;
   }
   $("sum1").innerHTML = sumHead(["日付", "車名"]) + "<tbody>" + rows.map(g => sumRow([g.d, g.c], g.items)).join("") + sumRow(["合計", ""], list, "total") + "</tbody>";
-  $("sum2").innerHTML = sumHead(["シーン"]) + "<tbody>" + sceneGroups(list).map(g => sumRow([g.s], g.items)).join("") + sumRow(["合計"], list, "total") + "</tbody>";
+  $("sum2").innerHTML = sumHead(["シーン"]) + "<tbody>" + sceneGroups(list).map(g => sumRow([g.s], g.items)).join("") + sumRow(["合計"], sceneList(list), "total") + "</tbody>";
 }
 const tsvLine = (a) => a.map(v => String(v ?? "").replace(/[\t\r\n]+/g, " ")).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
@@ -420,7 +425,7 @@ $("copySum1").addEventListener("click", () => {
 });
 $("copySum2").addEventListener("click", () => {
   const list = filtered(); if (!list.length) { toast("記録がありません"); return }
-  const lines = [tsvLine(["シーン", "合計", ...COLS.map(c => c.head)]), ...sceneGroups(list).map(g => tsvLine([g.s, ...tsvCounts(g.items)])), tsvLine(["合計", ...tsvCounts(list)])];
+  const lines = [tsvLine(["シーン", "合計", ...COLS.map(c => c.head)]), ...sceneGroups(list).map(g => tsvLine([g.s, ...tsvCounts(g.items)])), tsvLine(["合計", ...tsvCounts(sceneList(list))])];
   copyText(lines.join("\n"), "シーン別の集計をコピーしました");
 });
 $("fDate").addEventListener("change", renderSummary);
