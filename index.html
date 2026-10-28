@@ -63,10 +63,11 @@ table.sum .bl { border-left: 1px solid var(--line) }
 table.sum tr.total td { font-weight: 700; background: var(--bg) }
 table.sum td.t, table.sum th.t { font-weight: 700 }
 .cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
-.cat small { display: block; font-size: 11px; font-weight: 400; opacity: .9; margin-top: 4px }
+.cat small { display: none }
 .cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) } .cat[data-c="una"] { background: var(--una) } .cat[data-c="oth"] { background: var(--oth) }
 :root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
 .cat:active { transform: scale(.97) }
+.cat .nb { display: none }
 .opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
 .opt.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
 .cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
@@ -97,8 +98,7 @@ td a { color: var(--accent) }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
 .note { font-size: 12px; color: var(--muted); margin: 0 }
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
-@media (max-width: 420px) { .cat { min-height: 64px; font-size: 14px; padding: 4px } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
-@media (max-width: 380px) { .cat { font-size: 13px; padding: 2px; letter-spacing: -.02em; white-space: nowrap } }
+@media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px; padding: 4px } .cat .nb { display: inline } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
 @media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
 </style>
 
@@ -270,7 +270,9 @@ function applyFix(rec, p) {
 }
 
 /* ---- step 1: category ---- */
-$("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}">${c.name}<small>${c.subs.join(" / ")}</small></button>`).join("");
+// names of 4+ characters break after the 2nd character on phones (交通/違反, 安全/T/O)
+const catLabel = (n) => n.length >= 4 ? n.slice(0, 2) + '<br class="nb">' + n.slice(2) : n;
+$("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${c.name}">${catLabel(c.name)}<small>${c.subs.join(" / ")}</small></button>`).join("");
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
   const t = Date.now();
