@@ -1,5 +1,5 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
-<title>走行評価イベントロガー</title>
+<title>走行評価ロガー シンプル</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -7,7 +7,7 @@
 :root {
   --bg: #eef1f3; --panel: #ffffff; --fg: #15202b; --muted: #5b6875; --line: #d3dae0;
   --accent: #0a6c8a; --accent-ink: #ffffff;
-  --safe: #c62f2f; --eff: #c47a00; --viol: #3a4fb8; --una: #9c3d8f; --oth: #4f5d6b;
+  --safe: #c62f2f; --comf: #1f7a6d; --oth: #4f5d6b; --good: #1d7a46; --bad-c: #b3261e;
   --ok: #1d7a46; --warn: #b26b00; --bad: #b3261e;
   --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -15,12 +15,12 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --una: #d77ccb; --oth: #7d8d9c;
+  --safe: #ef5a5a; --comf: #3cb8a6; --oth: #7d8d9c; --good: #4cc17f; --bad-c: #ef5a5a;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1418; --panel: #182027; --fg: #e6ecf0; --muted: #94a2ae; --line: #2b3640;
   --accent: #3fb3d6; --accent-ink: #06151b;
-  --safe: #ef5a5a; --eff: #f0a62a; --viol: #7f90f0; --una: #d77ccb; --oth: #7d8d9c;
+  --safe: #ef5a5a; --comf: #3cb8a6; --oth: #7d8d9c; --good: #4cc17f; --bad-c: #ef5a5a;
   --ok: #4cc17f; --warn: #f0a62a; --bad: #ef5a5a; color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
@@ -62,18 +62,21 @@ table.sum th.grp { text-align: center; border-left: 1px solid var(--line) }
 table.sum .bl { border-left: 1px solid var(--line) }
 table.sum tr.total td { font-weight: 700; background: var(--bg) }
 table.sum td.t, table.sum th.t { font-weight: 700 }
-.cat { min-height: 72px; font-size: 18px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
+.cat { min-height: 80px; font-size: 20px; font-weight: 700; border: 0; color: #fff; display: grid; place-items: center; line-height: 1.2; padding: 8px }
 .cat small { display: none }
-.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="eff"] { background: var(--eff) } .cat[data-c="viol"] { background: var(--viol) } .cat[data-c="una"] { background: var(--una) } .cat[data-c="oth"] { background: var(--oth) }
+.cat[data-c="safe"] { background: var(--safe) } .cat[data-c="comf"] { background: var(--comf) } .cat[data-c="oth"] { background: var(--oth) }
 :root[data-theme="dark"] .cat, :root:not([data-theme="light"]) .cat { color: #fff }
 .cat:active { transform: scale(.97) }
 .cat .nb { display: none }
 .opt { min-height: 60px; font-size: 16px; font-weight: 600; padding: 8px }
 .opt.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+#subs .opt { min-height: 76px; font-size: 22px; font-weight: 700 }
+#subs .opt[data-v="👍 Good"].sel { background: var(--good); border-color: var(--good); color: #fff }
+#subs .opt[data-v="👎 Bad"].sel { background: var(--bad-c); border-color: var(--bad-c); color: #fff }
 .cur { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--bg); margin-bottom: 12px; font-variant-numeric: tabular-nums }
 .cur b { font-size: 17px }
 .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff }
-.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="eff"] { background: var(--eff) } .chip[data-c="viol"] { background: var(--viol) } .chip[data-c="una"] { background: var(--una) } .chip[data-c="oth"] { background: var(--oth) }
+.chip[data-c="safe"] { background: var(--safe) } .chip[data-c="comf"] { background: var(--comf) } .chip[data-c="oth"] { background: var(--oth) }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
 .btn { padding: 10px 16px; font-weight: 600; min-height: 44px }
 .btn.sm { padding: 6px 12px; min-height: 36px; font-size: 13px }
@@ -104,20 +107,20 @@ textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); fo
 html:lang(zh-CN) body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", system-ui, sans-serif }
 .note { font-size: 12px; color: var(--muted); margin: 0 }
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
-@media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px; padding: 4px } .cat .nb { display: inline } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
+@media (max-width: 420px) { .cat { min-height: 72px; font-size: 17px; padding: 4px } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
 @media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
 </style>
 
 </head><body>
 <header><div class="in">
-  <h1 data-zh="行驶评价事件记录">走行評価イベントロガー</h1>
+  <h1 data-zh="行驶评价记录（简易版）">走行評価ロガー（シンプル）</h1>
   <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText"></span></span>
   <span class="clock" id="clock">--:--:--</span>
 </div>
 <div class="in2 carrow"><input type="text" id="car" placeholder="車名（この後の記録に付きます）" data-zh-ph="车名（附加到之后的记录）" autocomplete="off" aria-label="車名">
   <nav class="tabs" id="tabs"><button data-v="log" class="on" aria-pressed="true" data-zh="记录">記録</button><button data-v="sum" aria-pressed="false" data-zh="统计">集計</button></nav></div>
 <div class="in2" id="stepCat">
-  <div class="grid g5" id="cats"></div>
+  <div class="grid g3" id="cats"></div>
 </div></header>
 
 <div class="wrap">
@@ -125,19 +128,15 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
   <section class="panel" id="stepDetail" hidden>
     <div class="cur" id="curInfo"></div>
     <div class="step">
-      <p class="label" data-zh="② 详细">② 詳細</p>
-      <div class="grid gs" id="subs"></div>
-    </div>
-    <div class="step" id="stepRoad">
-      <p class="label" data-zh="③ 道路">③ 道路</p>
-      <div class="grid g2" id="roads"></div>
+      <p class="label" data-zh="② 评价">② 評価</p>
+      <div class="grid g2" id="subs"></div>
     </div>
     <div class="step" id="stepScene">
-      <p class="label" data-zh="④ 场景">④ シーン</p>
+      <p class="label" data-zh="③ 场景（可选）">③ シーン（任意）</p>
       <div class="grid gs" id="scenes"></div>
     </div>
     <div class="step row">
-      <input type="text" id="memo" class="memo" placeholder="メモ（任意）" data-zh-ph="备注（可选）" autocomplete="off">
+      <input type="text" id="memo" class="memo" placeholder="コメント（任意）" data-zh-ph="备注（可选）" autocomplete="off">
       <button class="btn primary" id="done" data-zh="确认记录">記録を確定</button>
       <button class="btn danger ghost" id="cancel" data-zh="取消">取り消す</button>
     </div>
@@ -154,7 +153,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
       </div>
     </div>
     <div class="tablebox"><table>
-      <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="详细">詳細</th><th data-zh="道路">道路</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">メモ</th><th></th></tr></thead>
+      <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="评价">評価</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">コメント</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
   </section>
@@ -163,7 +162,6 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
     <div class="grid" style="gap:16px">
       <div class="filters">
         <label><span data-zh="日期">日付</span><select id="fDate"></select></label>
-        <label><span data-zh="道路">道路</span><select id="fRoad"></select></label>
         <label><span data-zh="车名">車名</span><select id="fCar"></select></label>
       </div>
       <section class="panel">
@@ -184,45 +182,36 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
 <div class="toast" id="toast" hidden></div>
 
 <script>
+// Simple mode: three categories, each rated Good / Bad; scene and comment are optional
+const RATES = ["👍 Good", "👎 Bad"];
 const CATS = [
-  { id: "safe", name: "安全T/O", subs: ["危険度-高", "危険度-中", "危険度-低"] },
-  { id: "eff",  name: "効率T/O", subs: ["発進しない", "加速しない", "車線間違い"] },
-  { id: "viol", name: "交通違反", subs: ["信号無視", "実線を踏む", "速度超過", "歩行者保護違反"] },
-  { id: "una",  name: "不要作動", subs: ["不要減速", "不要加速", "不要操舵"] },
-  { id: "oth",  name: "その他", subs: ["計測開始", "計測終了", "システム退出", "システム降級", "システム起動", "その他"], noScene: true }, // no road / scene step
+  { id: "safe", name: "安全・安心", subs: RATES },
+  { id: "comf", name: "快適", subs: RATES },
+  { id: "oth",  name: "その他", subs: RATES },
 ];
-const ROADS = ["高速道", "一般道"];
 const SCENES = ["巡行", "発進・加速", "減速", "右折", "左折", "Uターン", "合流・分岐", "ナビLC", "追い越し", "主動回避", "受動回避", "横断", "ラウンドアバウト"];
 // scene names used by earlier versions, mapped to their current names
 const SCENE_RENAMES = { "巡行・発進": "巡行", "追従加速": "発進・加速", "割り込まれ": "受動回避", "ナビレーンチェンジ": "ナビLC" };
-// detail names used by earlier versions (Japanese and Chinese), mapped to their current names
-const SUB_RENAMES = { "危険度 高": "危険度-高", "危険度 中": "危険度-中", "危険度 低": "危険度-低", "危险度 高": "危険度-高", "危险度 中": "危険度-中", "危险度 低": "危険度-低" };
 // Records always store the Japanese names; ZH translates them (and fixed labels) for display.
 const ZH = {
-  "安全T/O": "安全接管", "効率T/O": "效率接管", "交通違反": "交通违规", "不要作動": "误动作", "その他": "其他",
-  "危険度-高": "危险度-高", "危険度-中": "危险度-中", "危険度-低": "危险度-低",
-  "発進しない": "不起步", "加速しない": "不加速", "車線間違い": "车道错误",
-  "信号無視": "闯红灯", "実線を踏む": "压实线", "速度超過": "超速", "歩行者保護違反": "未礼让行人",
-  "不要減速": "误减速", "不要加速": "误加速", "不要操舵": "误转向",
-  "計測開始": "测试开始", "計測終了": "测试结束", "システム退出": "系统退出", "システム降級": "系统降级", "システム起動": "系统启动",
-  "高速道": "高速公路", "一般道": "普通道路",
+  "安全・安心": "安全・安心", "快適": "舒适", "その他": "其他",
   "巡行": "巡航", "発進・加速": "起步・加速", "減速": "减速", "右折": "右转", "左折": "左转", "Uターン": "掉头",
   "合流・分岐": "汇入・汇出", "ナビLC": "导航变道", "追い越し": "超车", "主動回避": "主动避让", "受動回避": "被动避让",
   "横断": "横穿", "ラウンドアバウト": "环岛",
 };
 const FROM_ZH = Object.fromEntries(Object.entries(ZH).map(([ja, zh]) => [zh, ja]));
-const KEY = "drive-event-logger-v1";
-const CAR_KEY = "drive-event-logger-car";
-const LANG_KEY = "drive-event-logger-lang";
+// own storage keys so simple-mode records never mix with the full logger's
+const KEY = "drive-event-logger-simple-v1";
+const CAR_KEY = "drive-event-logger-simple-car";
+const LANG_KEY = "drive-event-logger-simple-lang";
 const $ = (id) => document.getElementById(id);
 
 let lang = "ja";
 try { if (localStorage.getItem(LANG_KEY) === "zh") lang = "zh" } catch {}
 const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
-const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/detail/road/scene names
+const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/rating/scene names
 
 let records = load();
-records.forEach(r => { delete r.acc; delete r.lag; if (SCENE_RENAMES[r.scene]) r.scene = SCENE_RENAMES[r.scene]; if (SUB_RENAMES[r.sub]) r.sub = SUB_RENAMES[r.sub] });
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
@@ -331,16 +320,14 @@ wake();
 function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7) }
 
 /* ---- step 1: category ---- */
-// names of 4+ characters break after the 2nd character on phones (交通/違反, 安全/T/O)
-const catLabel = (n) => n.length >= 4 ? esc(n.slice(0, 2)) + '<br class="nb">' + esc(n.slice(2)) : esc(n);
 function renderCats() {
   $("cats").setAttribute("aria-label", tr("① イベント分類（押した時刻と位置を記録）", "① 事件分类（记录按下时的时间和位置）"));
-  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}">${catLabel(L(c.name))}</button>`).join("");
+  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}">${esc(L(c.name))}</button>`).join("");
 }
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
   const t = Date.now();
-  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", road: "", scene: "", memo: "", lat: null, lon: null };
+  const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", scene: "", memo: "", lat: null, lon: null };
   if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
   else if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition((p) => {
@@ -364,8 +351,6 @@ function openDetail(scrollToTop = false) {
   $("stepDetail").hidden = false;
   $("curInfo").innerHTML = `<span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><b>${fmtTime(r.t)}</b><span class="note">No.${records.length + 1} ${r.lat != null ? `· ${mapLinks(r)}` : "· " + tr("位置取得中…", "正在获取位置…")}</span>`;
   $("subs").innerHTML = optBtns(c.subs, r.sub);
-  $("stepRoad").hidden = $("stepScene").hidden = !!c.noScene;
-  $("roads").innerHTML = optBtns(ROADS, r.road);
   $("scenes").innerHTML = optBtns(SCENES, r.scene);
   $("memo").value = r.memo || "";
   if (!scrollToTop) return;
@@ -375,14 +360,13 @@ function openDetail(scrollToTop = false) {
 function setField(field, v) {
   const r = draft; if (!r) return;
   r[field] = r[field] === v ? "" : v; openDetail();
-  // after a scene is chosen, bring the confirm button into easy reach
-  if ((field === "scene" && r.scene) || (field === "sub" && r.sub && catOf(r.cat).noScene)) {
+  // after a rating or scene is chosen, bring the confirm button into easy reach
+  if ((field === "scene" && r.scene) || (field === "sub" && r.sub)) {
     const b = $("done").getBoundingClientRect();
     if (b.bottom > innerHeight - 24) scrollTo({ top: scrollY + b.bottom - innerHeight + 96, behavior: "smooth" });
   }
 }
 $("subs").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("sub", b.dataset.v) });
-$("roads").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("road", b.dataset.v) });
 $("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (b) setField("scene", b.dataset.v) });
 $("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").value });
 function finish() {
@@ -397,13 +381,13 @@ $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidd
 function renderTable() {
   renderSummary();
   $("count").textContent = records.length ? tr(`（${records.length}件）`, `（${records.length}条）`) : "";
-  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
+  if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="10" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
-    const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
+    const c = catOf(r.cat), pending = !r.sub;
     const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
       <td class="num">${i + 1}</td><td class="num">${fmtDate(r.t)}</td><td class="num">${fmtTime(r.t)}</td><td>${esc(r.car) || "—"}</td>
-      <td><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span></td><td>${esc(L(r.sub)) || "—"}</td><td>${esc(L(r.road)) || "—"}</td><td>${esc(L(r.scene)) || "—"}</td>
+      <td><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span></td><td>${esc(L(r.sub)) || "—"}</td><td>${esc(L(r.scene)) || "—"}</td>
       <td>${map}</td>
       <td class="memo-c">${esc(r.memo)}</td>
       <td class="act"><div class="row" style="flex-wrap:nowrap;gap:6px"><button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button></div></td></tr>`;
@@ -431,16 +415,14 @@ function editModal(id) {
     <b>${tr(`No.${records.indexOf(r) + 1} を編集`, `编辑 No.${records.indexOf(r) + 1}`)} <span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></b>
     <label>${tr("車名", "车名")}<input type="text" id="eCar" value="${esc(r.car)}"></label>
     <label>${tr("分類", "分类")}<select id="eCat">${CATS.map(c => `<option value="${c.id}"${c.id === r.cat ? " selected" : ""}>${esc(L(c.name))}</option>`).join("")}</select></label>
-    <label>${tr("詳細", "详细")}<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
-    <label>${tr("道路", "道路")}<select id="eRoad">${opts(ROADS, r.road)}</select></label>
+    <label>${tr("評価", "评价")}<select id="eSub">${opts(catOf(r.cat).subs, r.sub)}</select></label>
     <label>${tr("シーン", "场景")}<select id="eScene">${opts(SCENES, r.scene)}</select></label>
-    <label>${tr("メモ", "备注")}<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
+    <label>${tr("コメント", "备注")}<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="eNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="eOk">${tr("保存", "保存")}</button></div></div>`;
   $("modal").hidden = false;
-  $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, "") };
-  $("eNo").onclick = closeModal;
+    $("eNo").onclick = closeModal;
   $("eOk").onclick = () => {
-    r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.road = $("eRoad").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
+    r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
     save(); renderTable(); closeModal(); toast(tr("保存しました", "已保存"));
   };
 }
@@ -450,17 +432,14 @@ $("clearAll").addEventListener("click", () => {
 });
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
-const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
-  ["メモ", "备注"], ["Baidu地図", "百度地图"],
-  // not in the copy any more; still read when importing older copies
-  ["緯度", "纬度"], ["経度", "经度"]];
-const COPY_COLS = 10;
+const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["評価", "评价"], ["シーン", "场景"],
+  ["コメント", "备注"], ["Baidu地図", "百度地图"]];
 // empty cells are written as "-" in every copied table (import reads "-" back as empty)
 const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-";
 // table rows (header first) shared by the clipboard copy and the Excel file
 function recordRows() {
-  const head = HEAD.slice(0, COPY_COLS).map(h => tr(h[0], h[1]));
-  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""])];
+  const head = HEAD.map(h => tr(h[0], h[1]));
+  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""])];
 }
 const toTsv = (rows) => rows.map(tsvLine).join("\n");
 async function copyText(text, okMsg) {
@@ -487,8 +466,8 @@ $("copy").addEventListener("click", () => {
 
 /* ---- summary view ---- */
 // placeholder keys for empty values; shown through noneLabel()
-const NOCAR = "\u0000car", NOROAD = "\u0000road", NOSCENE = "\u0000scene";
-const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOROAD ? tr("（道路未選択）", "（未选道路）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
+const NOCAR = "\u0000car", NOSCENE = "\u0000scene";
+const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
 // columns: per category a total plus one per subtype
 const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null }, ...c.subs.map(s => ({ cat: c.id, sub: s }))]);
 const colLabel = (col) => col.sub == null ? tr("計", "合计") : L(col.sub);
@@ -501,8 +480,8 @@ function setOptions(sel, values, allLabel) {
   sel.value = values.includes(prev) ? prev : "";
 }
 function filtered() {
-  const d = $("fDate").value, c = $("fCar").value, rd = $("fRoad").value;
-  return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c) && (!rd || (r.road || NOROAD) === rd));
+  const d = $("fDate").value, c = $("fCar").value;
+  return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c));
 }
 function sumHead(firstCols) {
   const lead = firstCols.map(h => `<th rowspan="2">${h}</th>`).join("");
@@ -517,15 +496,12 @@ function groups(list = filtered()) {
   const keys = uniq(list.map(r => fmtDate(r.t) + "\u0001" + (r.car || NOCAR))).sort();
   return { list, rows: keys.map(k => { const [d, c] = k.split("\u0001"); return { d, c, items: list.filter(r => fmtDate(r.t) === d && (r.car || NOCAR) === c) } }) };
 }
-const sceneList = (list) => list.filter(r => !catOf(r.cat).noScene);
 function sceneGroups(list) {
-  list = sceneList(list);
   return [...SCENES, NOSCENE].map(s => ({ s, items: list.filter(r => (r.scene || NOSCENE) === s) })).filter(g => g.s !== NOSCENE || g.items.length);
 }
 function renderSummary() {
   if ($("sumView").hidden) return;
   setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), tr("すべての日付", "全部日期"));
-  setOptions($("fRoad"), [...ROADS, NOROAD].filter(v => records.some(r => (r.road || NOROAD) === v)), tr("すべての道路", "全部道路"));
   setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), tr("すべての車", "全部车辆"));
   const { list, rows } = groups();
   $("sumCount").textContent = tr(`（${list.length}件）`, `（${list.length}条）`);
@@ -535,7 +511,7 @@ function renderSummary() {
   }
   const total = tr("合計", "总计");
   $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d, noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>";
-  $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], sceneList(list), "total") + "</tbody>";
+  $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], list, "total") + "</tbody>";
 }
 const tsvLine = (a) => a.map(cellText).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
@@ -544,7 +520,7 @@ function sum1Rows(list) {
   return [[tr("日付", "日期"), tr("車名", "车名"), tr("合計", "总计"), ...COLS.map(colHead)], ...rows.map(g => [g.d, noneLabel(g.c), ...tsvCounts(g.items)]), [tr("合計", "总计"), "", ...tsvCounts(list)]];
 }
 function sum2Rows(list) {
-  return [[tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)], ...sceneGroups(list).map(g => [noneLabel(g.s), ...tsvCounts(g.items)]), [tr("合計", "总计"), ...tsvCounts(sceneList(list))]];
+  return [[tr("シーン", "场景"), tr("合計", "总计"), ...COLS.map(colHead)], ...sceneGroups(list).map(g => [noneLabel(g.s), ...tsvCounts(g.items)]), [tr("合計", "总计"), ...tsvCounts(list)]];
 }
 $("copySum1").addEventListener("click", () => {
   const list = filtered(); if (!list.length) { toast(tr("記録がありません", "没有记录")); return }
@@ -599,7 +575,7 @@ function buildXlsx(sheets) { // sheets: [{name, rows, widths}]
 function downloadXlsx() {
   const sumW = [12, 12, 8, ...COLS.map(() => 12)];
   const data = buildXlsx([
-    { name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 16, 12, 16, 30, 40] },
+    { name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 12, 16, 30, 40] },
     { name: tr("日付・車名別", "按日期・车名"), rows: sum1Rows(records), widths: sumW },
     { name: tr("シーン別", "按场景"), rows: sum2Rows(records), widths: sumW.slice(1) },
   ]);
@@ -613,7 +589,6 @@ function downloadXlsx() {
 }
 $("fDate").addEventListener("change", renderSummary);
 $("fCar").addEventListener("change", renderSummary);
-$("fRoad").addEventListener("change", renderSummary);
 
 /* ---- tabs ---- */
 function showView(v) {
@@ -634,11 +609,10 @@ function parseImport(text) {
   if (!lines.length) return { error: tr("貼り付けたデータが空です", "粘贴的数据为空") };
   const cells = (l) => l.split("\t").map(v => v.trim().replace(/^"(.*)"$/, "$1"));
   const head = cells(lines[0]);
-  const col = (ja) => { const h = HEAD.find(x => x[0] === ja); return head.findIndex(v => v === h[0] || v === h[1]) };
+  const col = (ja) => { const h = HEAD.find(x => x[0] === ja); return h ? head.findIndex(v => v === h[0] || v === h[1]) : -1 };
   const need = ["日付", "時刻", "分類"].filter(n => col(n) < 0);
   if (need.length) return { error: tr(`1行目に見出し（${need.join("・")}）が見つかりません。「表をコピー」したデータを見出しごと貼り付けてください`,
     `第1行找不到表头（${need.map(n => HEAD.find(x => x[0] === n)[1]).join("・")}）。请连同表头粘贴「复制表格」的数据`) };
-  const num = (v) => v === "" || v == null || isNaN(+v) ? null : +v;
   const ja = (v) => FROM_ZH[v] ?? v;
   const have = new Set(records.map(dupKey));
   const ok = [], bad = []; let dup = 0;
@@ -649,15 +623,15 @@ function parseImport(text) {
     if (!d || !tm || !cat) { bad.push(i + 2); return }
     const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
     const scene = ja(get("シーン"));
-    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: SUB_RENAMES[get("詳細")] || ja(get("詳細")), road: ja(get("道路")),
-      scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")) };
-    if (r.lat == null || r.lon == null) { const pos = posFromBaidu(get("Baidu地図")); r.lat = pos?.lat ?? null; r.lon = pos?.lon ?? null }
+    const pos = posFromBaidu(get("Baidu地図"));
+    const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: ja(get("評価")),
+      scene: SCENE_RENAMES[scene] || scene, memo: get("コメント"), lat: pos?.lat ?? null, lon: pos?.lon ?? null };
     if (have.has(dupKey(r))) { dup++; return }
     have.add(dupKey(r)); ok.push(r);
   });
   return { ok, dup, bad };
 }
-// same event = same second, category, detail and car
+// same event = same second, category, rating and car
 function dupKey(r) { return [fmtDate(r.t), fmtTime(r.t), r.cat, r.sub, r.car || ""].join("|") }
 
 // verb: "add" for the result toast, "can" for the preview line
@@ -690,7 +664,7 @@ $("import").addEventListener("click", () => {
 function openPasteBox(msg, text = "") {
   $("modal").innerHTML = `<div class="box">
     <b>${tr("データを取り込む", "导入数据")}</b>
-    <p class="note">${tr("「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・詳細・車名の記録は重複として取り込みません。", "请将「复制表格」的数据（也可以是在Excel中编辑过的）连同第1行表头粘贴到下方文本框。日期时间、分类、详细、车名都相同的记录视为重复，不会导入。")}</p>
+    <p class="note">${tr("「表をコピー」したデータ（Excelで編集したものも可）を、1行目の見出しごと下の枠に貼り付けてください。同じ日時・分類・評価・車名の記録は重複として取り込みません。", "请将「复制表格」的数据（也可以是在Excel中编辑过的）连同第1行表头粘贴到下方文本框。日期时间、分类、评价、车名都相同的记录视为重复，不会导入。")}</p>
     <textarea id="impText" placeholder="${tr("ここに貼り付け", "粘贴到这里")}" aria-label="${tr("取り込むデータ", "要导入的数据")}"></textarea>
     <p class="note" id="impInfo">${esc(msg)}</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="impNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="impOk" disabled>${tr("追加する", "添加")}</button></div></div>`;
