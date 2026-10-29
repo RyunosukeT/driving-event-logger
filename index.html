@@ -253,8 +253,8 @@ const pad = (n) => String(n).padStart(2, "0");
 const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
 const catOf = (id) => CATS.find(c => c.id === id);
-// Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
-// (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
+// Amap uses GCJ-02. Inside mainland China convert WGS84 → GCJ-02 here (standard formula)
+// instead of relying on Amap's own conversion; outside China GCJ-02 is WGS84 unchanged.
 const inChina = (lat, lon) => !(lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271);
 function wgsToGcj(lat, lon) {
   const a = 6378245.0, ee = 0.00669342162296594323, PI = Math.PI, x = lon - 105, y = lat - 35;
@@ -271,37 +271,33 @@ function wgsToGcj(lat, lon) {
   const gLon = lon + dLon * 180 / (a / sm * Math.cos(rad) * PI);
   return { lat: gLat, lon: gLon };
 }
-function wgsToBd(lat, lon) {
-  if (!inChina(lat, lon)) return null;
-  const { lat: gLat, lon: gLon } = wgsToGcj(lat, lon), PI = Math.PI;
-  const X = PI * 3000 / 180, z = Math.sqrt(gLon * gLon + gLat * gLat) + 0.00002 * Math.sin(gLat * X);
-  const th = Math.atan2(gLat, gLon) + 0.000003 * Math.cos(gLon * X);
-  return { lat: +(z * Math.sin(th) + 0.006).toFixed(6), lon: +(z * Math.cos(th) + 0.0065).toFixed(6) };
+// GCJ-02 → WGS84 by fixed-point iteration (sub-metre), for import
+function gcjToWgs(lat, lon) {
+  if (!inChina(lat, lon)) return { lat, lon };
+  let w = { lat, lon };
+  for (let i = 0; i < 10; i++) { const f = wgsToGcj(w.lat, w.lon); w = { lat: w.lat + lat - f.lat, lon: w.lon + lon - f.lon } }
+  return { lat: +w.lat.toFixed(7), lon: +w.lon.toFixed(7) };
 }
-// inverse for import: BD-09 → GCJ-02 exactly, then GCJ-02 → WGS84 by fixed-point iteration (sub-metre)
+// BD-09 → GCJ-02 exactly, then GCJ-02 → WGS84; for Baidu links in copies made by earlier versions
 function bdToWgs(lat, lon) {
   const X = Math.PI * 3000 / 180, x = lon - 0.0065, y = lat - 0.006;
   const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X), th = Math.atan2(y, x) - 0.000003 * Math.cos(x * X);
-  const g = { lat: z * Math.sin(th), lon: z * Math.cos(th) };
-  let w = { ...g };
-  for (let i = 0; i < 10; i++) { const f = wgsToGcj(w.lat, w.lon); w = { lat: w.lat + g.lat - f.lat, lon: w.lon + g.lon - f.lon } }
-  return { lat: +w.lat.toFixed(7), lon: +w.lon.toFixed(7) };
+  return gcjToWgs(z * Math.sin(th), z * Math.cos(th));
 }
-// position from a copied Baidu link (the copy no longer carries latitude/longitude columns)
-function posFromBaidu(url) {
+// position from a copied Amap (or older Baidu) link (the copy no longer carries latitude/longitude columns)
+function posFromLink(url) {
+  const a = String(url).match(/position=(-?[\d.]+),(-?[\d.]+)/);
+  if (a) return /coordinate=wgs84/.test(url) ? { lat: +a[2], lon: +a[1] } : gcjToWgs(+a[2], +a[1]);
   const m = String(url).match(/location=(-?[\d.]+),(-?[\d.]+)&coord_type=(\w+)/); if (!m) return null;
   const lat = +m[1], lon = +m[2];
   return m[3] === "bd09ll" ? bdToWgs(lat, lon) : { lat, lon };
 }
-function baiduUrl(r) {
-  const bd = wgsToBd(r.lat, r.lon);
-  const loc = bd ? `${bd.lat},${bd.lon}&coord_type=bd09ll` : `${r.lat},${r.lon}&coord_type=wgs84`;
-  const title = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""}`.trim());
-  const content = encodeURIComponent(`${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`);
-  // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
-  return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
+function amapUrl(r) {
+  const g = inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
+  const name = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""} ${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`.replace(/ +/g, " "));
+  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
 }
-const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">${tr("Baidu地図", "百度地图")}</a>`;
+const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("高徳地図", "高德地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- language ---- */
@@ -348,7 +344,7 @@ async function wake() { try { await navigator.wakeLock?.request("screen") } catc
 document.addEventListener("visibilitychange", () => { if (!document.hidden) wake() });
 wake();
 
-// only the position is kept, for the Baidu map link
+// only the position is kept, for the Amap link
 function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7) }
 
 /* ---- step 1: category ---- */
@@ -472,16 +468,16 @@ $("clearAll").addEventListener("click", () => {
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
-  ["メモ", "备注"], ["Baidu地図", "百度地图"],
+  ["メモ", "备注"], ["高徳地図", "高德地图"],
   // not in the copy any more; still read when importing older copies
-  ["緯度", "纬度"], ["経度", "经度"]];
+  ["緯度", "纬度"], ["経度", "经度"], ["Baidu地図", "百度地图"]];
 const COPY_COLS = 10;
 // empty cells are written as "-" in every copied table (import reads "-" back as empty)
 const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-";
 // table rows (header first) shared by the clipboard copy and the Excel file
 function recordRows() {
   const head = HEAD.slice(0, COPY_COLS).map(h => tr(h[0], h[1]));
-  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""])];
+  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.road), L(r.scene), r.memo, r.lat != null ? amapUrl(r) : ""])];
 }
 const toTsv = (rows) => rows.map(tsvLine).join("\n");
 async function copyText(text, okMsg) {
@@ -578,7 +574,7 @@ $("copySum2").addEventListener("click", () => {
 });
 
 /* ---- event map: Amap (高德) raster tiles placed by hand, so no map library or API key is needed ---- */
-// Amap tiles are GCJ-02 on Web Mercator; stored positions are WGS84, so convert inside China like the Baidu link does
+// Amap tiles are GCJ-02 on Web Mercator; stored positions are WGS84, so convert inside China like the Amap link does
 const TILE = 256, MINZ = 3, MAXZ = 18;
 const tileUrl = (x, y, z) => `https://webrd0${1 + (x + y) % 4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=${x}&y=${y}&z=${z}`;
 const toGcj = (r) => inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
@@ -806,7 +802,7 @@ function parseImport(text) {
     const scene = ja(get("シーン"));
     const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: SUB_RENAMES[get("詳細")] || ja(get("詳細")), road: ja(get("道路")),
       scene: SCENE_RENAMES[scene] || scene, memo: get("メモ"), lat: num(get("緯度")), lon: num(get("経度")) };
-    if (r.lat == null || r.lon == null) { const pos = posFromBaidu(get("Baidu地図")); r.lat = pos?.lat ?? null; r.lon = pos?.lon ?? null }
+    if (r.lat == null || r.lon == null) { const pos = posFromLink(get("高徳地図") || get("Baidu地図")); r.lat = pos?.lat ?? null; r.lon = pos?.lon ?? null }
     if (have.has(dupKey(r))) { dup++; return }
     have.add(dupKey(r)); ok.push(r);
   });
