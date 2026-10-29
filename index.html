@@ -108,6 +108,27 @@ h1 b { color: var(--fg); font-weight: 700 }
 .item.pending { box-shadow: var(--shadow), inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 70%, transparent) }
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; border-radius: 16px; border: 1.5px dashed var(--line) }
 
+/* event map */
+.map { position: relative; height: 340px; overflow: hidden; border-radius: 14px; background: #e8e4da; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab }
+.map.drag { cursor: grabbing }
+.map img { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none }
+.map .pin { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; padding: 0; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.45); cursor: pointer }
+.map .pin.sel { width: 26px; height: 26px; margin: -13px 0 0 -13px; z-index: 2; outline: 3px solid var(--fg); outline-offset: 1px }
+.pin[data-c="safe"] { background: var(--safe) } .pin[data-c="comf"] { background: var(--comf) } .pin[data-c="oth"] { background: var(--oth) }
+.map .zoom { position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; gap: 6px }
+.map .zoom button { width: 38px; height: 38px; padding: 0; font-size: 18px; font-weight: 700; background: var(--card); color: var(--fg); border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.25) }
+.map .zoom button.fit { font-size: 12px }
+.map .credit { position: absolute; right: 0; bottom: 0; z-index: 3; font-size: 10px; padding: 1px 6px; background: rgba(255,255,255,.75); color: #333 }
+.map .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px; color: var(--muted); background: var(--card); z-index: 4 }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted) }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px }
+.mapinfo { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--soft); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-variant-numeric: tabular-nums }
+.mapinfo a { color: var(--fg); font-weight: 600 }
+.mapinfo .rate[data-v="👍 Good"] { color: var(--good) } .mapinfo .rate[data-v="👎 Bad"] { color: var(--bad-c) }
+.maphead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px }
+.maphead h2 { font-size: 20px; font-weight: 700; margin: 0 auto 0 4px; letter-spacing: -.01em }
+.maphead #mapCount { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 8px }
+
 /* overlays */
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--ink-fg); padding: 10px 18px; border-radius: 99px; font-weight: 600; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); box-shadow: var(--shadow) }
 .modal { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .4); display: grid; place-items: center; padding: 16px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px) }
@@ -160,6 +181,16 @@ textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: u
     <div class="list" id="tbody"></div>
   </section>
 
+  <section class="card" id="mapView">
+    <div class="maphead">
+      <h2><span data-zh="地图">地図</span><span id="mapCount"></span></h2>
+      <button class="btn sm primary" id="saveMap" data-zh="保存图片">画像を保存</button>
+    </div>
+    <div class="map" id="map"></div>
+    <div class="legend" id="mapLegend"></div>
+    <div class="mapinfo" id="mapInfo" hidden></div>
+  </section>
+
   <textarea id="fallback" hidden readonly aria-label="コピー用テキスト"></textarea>
 </div>
 
@@ -208,8 +239,8 @@ const pad = (n) => String(n).padStart(2, "0");
 const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
 const catOf = (id) => CATS.find(c => c.id === id);
-// Baidu Maps uses BD-09. Inside mainland China convert WGS84 → GCJ-02 → BD-09 here
-// (standard formulas) instead of relying on Baidu's own conversion; outside China pass WGS84.
+// Amap uses GCJ-02. Inside mainland China convert WGS84 → GCJ-02 here (standard formula)
+// instead of relying on Amap's own conversion; outside China GCJ-02 is WGS84 unchanged.
 const inChina = (lat, lon) => !(lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271);
 function wgsToGcj(lat, lon) {
   const a = 6378245.0, ee = 0.00669342162296594323, PI = Math.PI, x = lon - 105, y = lat - 35;
@@ -226,37 +257,35 @@ function wgsToGcj(lat, lon) {
   const gLon = lon + dLon * 180 / (a / sm * Math.cos(rad) * PI);
   return { lat: gLat, lon: gLon };
 }
-function wgsToBd(lat, lon) {
-  if (!inChina(lat, lon)) return null;
-  const { lat: gLat, lon: gLon } = wgsToGcj(lat, lon), PI = Math.PI;
-  const X = PI * 3000 / 180, z = Math.sqrt(gLon * gLon + gLat * gLat) + 0.00002 * Math.sin(gLat * X);
-  const th = Math.atan2(gLat, gLon) + 0.000003 * Math.cos(gLon * X);
-  return { lat: +(z * Math.sin(th) + 0.006).toFixed(6), lon: +(z * Math.cos(th) + 0.0065).toFixed(6) };
+// GCJ-02 → WGS84 by fixed-point iteration (sub-metre), for import
+function gcjToWgs(lat, lon) {
+  if (!inChina(lat, lon)) return { lat, lon };
+  let w = { lat, lon };
+  for (let i = 0; i < 10; i++) { const f = wgsToGcj(w.lat, w.lon); w = { lat: w.lat + lat - f.lat, lon: w.lon + lon - f.lon } }
+  return { lat: +w.lat.toFixed(7), lon: +w.lon.toFixed(7) };
 }
-// inverse for import: BD-09 → GCJ-02 exactly, then GCJ-02 → WGS84 by fixed-point iteration (sub-metre)
+// BD-09 → GCJ-02 exactly, then GCJ-02 → WGS84; for Baidu links in copies made by earlier versions
 function bdToWgs(lat, lon) {
   const X = Math.PI * 3000 / 180, x = lon - 0.0065, y = lat - 0.006;
   const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X), th = Math.atan2(y, x) - 0.000003 * Math.cos(x * X);
-  const g = { lat: z * Math.sin(th), lon: z * Math.cos(th) };
-  let w = { ...g };
-  for (let i = 0; i < 10; i++) { const f = wgsToGcj(w.lat, w.lon); w = { lat: w.lat + g.lat - f.lat, lon: w.lon + g.lon - f.lon } }
-  return { lat: +w.lat.toFixed(7), lon: +w.lon.toFixed(7) };
+  return gcjToWgs(z * Math.sin(th), z * Math.cos(th));
 }
-// position from a copied Baidu link (the copy no longer carries latitude/longitude columns)
-function posFromBaidu(url) {
+// position from a copied Amap (or older Baidu) link (the copy no longer carries latitude/longitude columns)
+function posFromLink(url) {
+  const a = String(url).match(/position=(-?[\d.]+),(-?[\d.]+)/);
+  if (a) return /coordinate=wgs84/.test(url) ? { lat: +a[2], lon: +a[1] } : gcjToWgs(+a[2], +a[1]);
   const m = String(url).match(/location=(-?[\d.]+),(-?[\d.]+)&coord_type=(\w+)/); if (!m) return null;
   const lat = +m[1], lon = +m[2];
   return m[3] === "bd09ll" ? bdToWgs(lat, lon) : { lat, lon };
 }
-function baiduUrl(r) {
-  const bd = wgsToBd(r.lat, r.lon);
-  const loc = bd ? `${bd.lat},${bd.lon}&coord_type=bd09ll` : `${r.lat},${r.lon}&coord_type=wgs84`;
-  const title = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""}`.trim());
-  const content = encodeURIComponent(`${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`);
-  // src must follow Baidu's "webapp.<company>.<app>" format or the page may refuse to load
-  return `https://api.map.baidu.com/marker?location=${loc}&title=${title}&content=${content}&output=html&src=webapp.drivelogger.eventlogger`;
+function amapUrl(r) {
+  const g = inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
+  // Amap cuts long pin names short, so the memo comes right after the category and the date/time is kept short
+  const d = new Date(r.t), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const name = encodeURIComponent([`${L(catOf(r.cat).name)} ${L(r.sub)}`.trim(), r.memo, r.car, when].filter(Boolean).join("｜").replace(/\s+/g, " "));
+  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
 }
-const mapLinks = (r) => `<a href="${esc(baiduUrl(r))}" target="_blank" rel="noopener">${tr("地図", "地图")}</a>`;
+const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("地図", "地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 
 /* ---- language ---- */
@@ -303,7 +332,7 @@ async function wake() { try { await navigator.wakeLock?.request("screen") } catc
 document.addEventListener("visibilitychange", () => { if (!document.hidden) wake() });
 wake();
 
-// only the position is kept, for the Baidu map link
+// only the position is kept, for the Amap link
 function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +p.coords.longitude.toFixed(7) }
 
 /* ---- step 1: category ---- */
@@ -379,6 +408,7 @@ $("cancel").addEventListener("click", () => { draft = null; openDetail(); toast(
 /* ---- table ---- */
 function renderTable() {
   $("count").textContent = records.length ? tr(`${records.length}件`, `${records.length}条`) : "";
+  renderMap(records);
   if (!records.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。上の分類を押すと、その時刻と位置で記録が始まります。", "还没有记录。按上方的分类，即以当时的时间和位置开始记录。")}</p>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), sub = [L(r.scene), r.memo].filter(Boolean).map(esc).join(" · ");
@@ -428,13 +458,15 @@ $("clearAll").addEventListener("click", () => {
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["評価", "评价"], ["シーン", "场景"],
-  ["コメント", "备注"], ["Baidu地図", "百度地图"]];
+  ["コメント", "备注"], ["高徳地図", "高德地图"]];
+// Baidu link column of copies made by earlier versions; still read when importing
+const OLD_MAP_HEAD = ["Baidu地図", "百度地图"];
 // empty cells are written as "-" in every copied table (import reads "-" back as empty)
 const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-";
 // table rows (header first) shared by the clipboard copy and the Excel file
 function recordRows() {
   const head = HEAD.map(h => tr(h[0], h[1]));
-  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.scene), r.memo, r.lat != null ? baiduUrl(r) : ""])];
+  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.scene), r.memo, r.lat != null ? amapUrl(r) : ""])];
 }
 const toTsv = (rows) => rows.map(tsvLine).join("\n");
 async function copyText(text, okMsg) {
@@ -460,6 +492,201 @@ $("copy").addEventListener("click", () => {
 });
 
 const tsvLine = (a) => a.map(cellText).join("\t");
+/* ---- event map: Amap (高德) raster tiles placed by hand, so no map library or API key is needed ---- */
+// Amap tiles are GCJ-02 on Web Mercator; stored positions are WGS84, so convert inside China like the Amap link does
+const TILE = 256, MINZ = 3, MAXZ = 18;
+const tileUrl = (x, y, z) => `https://webrd0${1 + (x + y) % 4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=${x}&y=${y}&z=${z}`;
+const toGcj = (r) => inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
+// position → pixel coordinates of the whole world at zoom 0
+function project(p) {
+  const s = Math.sin(Math.max(-85, Math.min(85, p.lat)) * Math.PI / 180);
+  return { x: TILE * (p.lon + 180) / 360, y: TILE * (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) };
+}
+const map = { pts: [], z: 4, cx: TILE / 2, cy: TILE / 2, sel: null }; // cx, cy: centre in zoom-0 pixels
+const mapImgs = new Map();
+function renderMap(list) {
+  map.pts = list.filter(r => r.lat != null && r.lon != null).map(r => ({ r, ...project(toGcj(r)) }));
+  if (!map.pts.some(p => p.r.id === map.sel)) map.sel = null;
+  const noPos = list.length - map.pts.length;
+  $("mapCount").textContent = map.pts.length ? tr(`${map.pts.length}件`, `${map.pts.length}条`) : "";
+  $("mapLegend").innerHTML = CATS.map(c => [c, map.pts.filter(p => p.r.cat === c.id).length]).filter(([, n]) => n)
+    .map(([c, n]) => `<span><i style="background:var(--${c.id})"></i>${esc(L(c.name))} ${n}</span>`).join("")
+    + (noPos ? `<span>${tr(`位置なし ${noPos}件（地図に出ません）`, `无位置 ${noPos}条（不显示在地图上）`)}</span>` : "");
+  $("map").innerHTML = ""; // rebuild the controls so their labels follow the language
+  fitMap(); drawMap(); renderMapInfo();
+}
+function fitMap() {
+  const el = $("map"), w = el.clientWidth - 60, h = el.clientHeight - 60;
+  if (!map.pts.length || w <= 0) return;
+  const xs = map.pts.map(p => p.x), ys = map.pts.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  let z = 16;
+  while (z > MINZ && ((x1 - x0) * 2 ** z > w || (y1 - y0) * 2 ** z > h)) z--;
+  Object.assign(map, { z, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
+}
+function drawMap() {
+  const el = $("map"), w = el.clientWidth, h = el.clientHeight;
+  if (!map.pts.length) {
+    mapImgs.clear();
+    el.innerHTML = `<div class="msg">${tr("位置のある記録がありません。記録時に位置が取れた記録がここに表示されます。", "没有带位置的记录。记录时获取到位置的记录会显示在这里。")}</div>`;
+    return;
+  }
+  if (!el.querySelector(".zoom")) {
+    mapImgs.clear();
+    el.innerHTML = `<div class="tiles"></div><div class="pins"></div>
+      <div class="zoom"><button type="button" data-z="1" aria-label="${tr("拡大", "放大")}">＋</button><button type="button" data-z="-1" aria-label="${tr("縮小", "缩小")}">−</button><button type="button" class="fit" data-z="fit">${tr("全体", "全部")}</button></div>
+      <div class="credit">© 高德地图</div>`;
+  }
+  if (!w) return;
+  const n = 2 ** map.z, ox = map.cx * n - w / 2, oy = map.cy * n - h / 2, tiles = el.querySelector(".tiles"), keep = new Set();
+  for (let ty = Math.max(0, Math.floor(oy / TILE)); ty < n && ty * TILE < oy + h; ty++) {
+    for (let tx = Math.floor(ox / TILE); tx * TILE < ox + w; tx++) {
+      const key = `${map.z}/${tx}/${ty}`; keep.add(key);
+      let img = mapImgs.get(key);
+      if (!img) { img = new Image(); img.alt = ""; img.src = tileUrl((tx % n + n) % n, ty, map.z); tiles.appendChild(img); mapImgs.set(key, img) }
+      img.style.left = tx * TILE - ox + "px"; img.style.top = ty * TILE - oy + "px";
+    }
+  }
+  for (const [key, img] of mapImgs) if (!keep.has(key)) { img.remove(); mapImgs.delete(key) }
+  // selected pin last so it sits on top
+  const pts = [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel));
+  el.querySelector(".pins").innerHTML = pts.map(p => `<button type="button" class="pin${p.r.id === map.sel ? " sel" : ""}" data-c="${p.r.cat}" data-id="${p.r.id}"
+    style="left:${(p.x * n - ox).toFixed(1)}px;top:${(p.y * n - oy).toFixed(1)}px" title="No.${records.indexOf(p.r) + 1} ${esc(L(catOf(p.r.cat).name))} ${esc(L(p.r.sub))}${p.r.memo ? " " + esc(p.r.memo) : ""}"></button>`).join("");
+}
+function renderMapInfo() {
+  const r = records.find(x => x.id === map.sel), box = $("mapInfo");
+  box.hidden = !r; if (!r) return;
+  const c = catOf(r.cat);
+  box.innerHTML = `<b>No.${records.indexOf(r) + 1}</b><span>${esc(L(c.name))}</span><span class="rate" data-v="${esc(r.sub)}">${esc(L(r.sub)) || "—"}</span>
+    <span>${fmtDate(r.t)} ${fmtTime(r.t)}</span>${r.car ? `<span>${esc(r.car)}</span>` : ""}${r.scene ? `<span>${esc(L(r.scene))}</span>` : ""}
+    ${r.memo ? `<span>${esc(r.memo)}</span>` : ""}${mapLinks(r)}`;
+}
+function selectPin(id) { map.sel = id; drawMap(); renderMapInfo() }
+function panMap(dx, dy) {
+  const n = 2 ** map.z;
+  map.cx -= dx / n; map.cy = Math.max(0, Math.min(TILE, map.cy - dy / n));
+  drawMap();
+}
+// zoom by dz whole levels, keeping the point (px, py) inside the map where it is
+function zoomMap(dz, px, py) {
+  const el = $("map"), z = Math.max(MINZ, Math.min(MAXZ, map.z + dz));
+  if (z === map.z) return;
+  px ??= el.clientWidth / 2; py ??= el.clientHeight / 2;
+  const fx = px - el.clientWidth / 2, fy = py - el.clientHeight / 2, n0 = 2 ** map.z, n1 = 2 ** z;
+  map.cx += fx / n0 - fx / n1; map.cy += fy / n0 - fy / n1; map.z = z;
+  drawMap();
+}
+// one finger drags, two fingers pinch (a whole zoom level per step); a tap on a pin shows that record
+const ptrs = new Map();
+let gesture = null;
+const pinchDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) };
+$("map").addEventListener("pointerdown", (e) => {
+  if (!map.pts.length || e.target.closest(".zoom")) return;
+  $("map").setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) gesture = { moved: 0, pin: e.target.closest(".pin")?.dataset.id ?? null };
+  if (ptrs.size === 2) { gesture.moved = Infinity; gesture.d = pinchDist() }
+  $("map").classList.add("drag");
+});
+$("map").addEventListener("pointermove", (e) => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 1) { gesture.moved += Math.abs(dx) + Math.abs(dy); panMap(dx, dy); return }
+  const d = pinchDist(), ratio = d / gesture.d;
+  if (ratio > 1.6 || ratio < 0.625) {
+    const rect = $("map").getBoundingClientRect(), [a, b] = [...ptrs.values()];
+    zoomMap(ratio > 1 ? 1 : -1, (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
+    gesture.d = d;
+  }
+});
+function endPointer(e) {
+  if (!ptrs.delete(e.pointerId)) return;
+  if (ptrs.size) return;
+  $("map").classList.remove("drag");
+  if (e.type === "pointerup" && gesture.moved < 8) selectPin(gesture.pin);
+  gesture = null;
+}
+$("map").addEventListener("pointerup", endPointer);
+$("map").addEventListener("pointercancel", endPointer);
+let wheelAcc = 0;
+$("map").addEventListener("wheel", (e) => {
+  if (!map.pts.length) return;
+  e.preventDefault();
+  wheelAcc += e.deltaY;
+  if (Math.abs(wheelAcc) < 60) return;
+  const rect = $("map").getBoundingClientRect();
+  zoomMap(wheelAcc < 0 ? 1 : -1, e.clientX - rect.left, e.clientY - rect.top);
+  wheelAcc = 0;
+}, { passive: false });
+$("map").addEventListener("click", (e) => {
+  const b = e.target.closest(".zoom button"); if (!b) return;
+  if (b.dataset.z === "fit") { fitMap(); drawMap() } else zoomMap(+b.dataset.z);
+});
+new ResizeObserver(() => drawMap()).observe($("map"));
+
+// PNG of the map as shown, with a caption (filters, count) and legend underneath.
+// Tiles are reloaded with CORS so the canvas stays exportable; if that fails the image is saved without them.
+const loadCorsImg = (src) => new Promise((ok) => {
+  const img = new Image(); img.crossOrigin = "anonymous";
+  const t = setTimeout(() => ok(null), 8000);
+  img.onload = () => { clearTimeout(t); ok(img) }; img.onerror = () => { clearTimeout(t); ok(null) };
+  img.src = src;
+});
+async function saveMapImage() {
+  if (!map.pts.length) { toast(tr("地図に出す記録がありません", "没有可显示在地图上的记录")); return }
+  const el = $("map"), w = el.clientWidth, h = el.clientHeight, css = getComputedStyle(document.body);
+  const col = (v) => css.getPropertyValue(v).trim(), font = css.fontFamily, k = Math.min(3, Math.max(2, devicePixelRatio || 1));
+  const legend = CATS.map(c => [c, map.pts.filter(p => p.r.cat === c.id).length]).filter(([, n]) => n);
+  const cv = document.createElement("canvas"), g = cv.getContext("2d");
+  // lay the legend out in rows that fit the width
+  g.font = `12px ${font}`;
+  const rows = [[]]; let lx = 10;
+  for (const [c, cnt] of legend) {
+    const t = `${L(c.name)} ${cnt}`, tw = g.measureText(t).width + 14;
+    if (lx + tw > w - 10 && rows.at(-1).length) { rows.push([]); lx = 10 }
+    rows.at(-1).push({ c, t, x: lx }); lx += tw + 14;
+  }
+  const capH = 34 + rows.length * 20;
+  cv.width = w * k; cv.height = (h + capH) * k; g.scale(k, k);
+  const draw = async (withTiles) => {
+    g.fillStyle = "#e8e4da"; g.fillRect(0, 0, w, h);
+    let tilesOk = true;
+    if (withTiles) {
+      const tiles = await Promise.all([...mapImgs.values()].map(async (img) => [img, await loadCorsImg(img.src)]));
+      for (const [img, c] of tiles) { if (c) g.drawImage(c, parseFloat(img.style.left), parseFloat(img.style.top), TILE, TILE); else tilesOk = false }
+    }
+    const n = 2 ** map.z, ox = map.cx * n - w / 2, oy = map.cy * n - h / 2;
+    for (const p of [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel))) {
+      const r = p.r.id === map.sel ? 11 : 7;
+      g.beginPath(); g.arc(p.x * n - ox, p.y * n - oy, r, 0, 2 * Math.PI);
+      g.fillStyle = col("--" + p.r.cat); g.fill(); g.lineWidth = 2; g.strokeStyle = "#fff"; g.stroke();
+    }
+    g.font = `10px ${font}`; g.textAlign = "right"; g.textBaseline = "bottom";
+    const credit = "© 高德地图", cw = g.measureText(credit).width + 12;
+    g.fillStyle = "rgba(255,255,255,.75)"; g.fillRect(w - cw, h - 14, cw, 14); g.fillStyle = "#333"; g.fillText(credit, w - 6, h - 1);
+    g.fillStyle = col("--card"); g.fillRect(0, h, w, capH);
+    g.textAlign = "left"; g.textBaseline = "middle"; g.fillStyle = col("--fg"); g.font = `700 13px ${font}`;
+    g.fillText(`${tr("評価ログの地図", "评价记录地图")} ${tr(`${map.pts.length}件`, `${map.pts.length}条`)}`, 10, h + 16, w - 20);
+    g.font = `12px ${font}`;
+    rows.forEach((row, i) => row.forEach(({ c, t, x }) => {
+      const y = h + 40 + i * 20;
+      g.beginPath(); g.arc(x + 5, y, 5, 0, 2 * Math.PI); g.fillStyle = col("--" + c.id); g.fill();
+      g.fillStyle = col("--muted"); g.fillText(t, x + 14, y);
+    }));
+    return tilesOk;
+  };
+  const btn = $("saveMap"); btn.disabled = true;
+  try {
+    let tilesOk = await draw(true), blob = null;
+    try { blob = await new Promise(ok => cv.toBlob(ok, "image/png")) } catch {}
+    if (!blob) { tilesOk = false; g.clearRect(0, 0, w, h + capH); await draw(false); blob = await new Promise(ok => cv.toBlob(ok, "image/png")) }
+    saveBlob(blob, "png");
+    toast(tilesOk ? tr("地図の画像を保存しました", "已保存地图图片") : tr("背景の地図を読み込めなかったため、ピンだけの画像を保存しました", "无法读取底图，已保存仅含标记的图片"));
+  } finally { btn.disabled = false }
+}
+$("saveMap").addEventListener("click", saveMapImage);
+
 /* ---- Excel (.xlsx) export: written by hand (stored ZIP + SpreadsheetML) so no library has to load ---- */
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 });
 function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0 }
@@ -503,13 +730,16 @@ function buildXlsx(sheets) { // sheets: [{name, rows, widths}]
 }
 function downloadXlsx() {
   const data = buildXlsx([{ name: tr("記録", "记录"), rows: recordRows(), widths: [6, 12, 10, 12, 12, 12, 16, 30, 40] }]);
+  saveBlob(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "xlsx");
+  toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
+}
+function saveBlob(blob, ext) {
   const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-  a.download = `drive_events_${stamp}.xlsx`; // ASCII: some browsers drop non-ASCII download names
+  a.href = URL.createObjectURL(blob);
+  a.download = `drive_events_${stamp}.${ext}`; // ASCII: some browsers drop non-ASCII download names
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
 }
 /* ---- import pasted TSV (表をコピー format in either language; matched by header name) ---- */
 function parseImport(text) {
@@ -531,7 +761,8 @@ function parseImport(text) {
     if (!d || !tm || !cat) { bad.push(i + 2); return }
     const t = new Date(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +(tm[3] || 0)).getTime();
     const scene = ja(get("シーン"));
-    const pos = posFromBaidu(get("Baidu地図"));
+    const oldCol = head.findIndex(v => OLD_MAP_HEAD.includes(v)), old = oldCol >= 0 ? c[oldCol] ?? "" : "";
+    const pos = posFromLink(get("高徳地図") || old);
     const r = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: cat.id, car: get("車名"), sub: ja(get("評価")),
       scene: SCENE_RENAMES[scene] || scene, memo: get("コメント"), lat: pos?.lat ?? null, lon: pos?.lon ?? null };
     if (have.has(dupKey(r))) { dup++; return }
