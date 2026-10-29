@@ -3,7 +3,7 @@
 // Fonts and Amap map tiles are cached as they are used.
 const SHELL = "shell-v1", FONTS = "fonts-v1", TILES = "tiles-v1";
 const INDEX = new URL("./", self.registration.scope).href;
-const ASSETS = ["manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+const ASSETS = ["manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "icon-maskable-512.png"];
 const MAX_TILES = 3000; // about 50 MB of tiles at most
 
 self.addEventListener("install", (e) => {
