@@ -234,7 +234,6 @@ const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
 const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/rating/scene names
 
 let records = load();
-const SCENES_SHOWN = 5;
 let scenesOpen = false;
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
@@ -376,16 +375,31 @@ function openDetail(scrollToTop = false) {
   $("curInfo").style.setProperty("--c", `var(--${c.id})`);
   $("curInfo").innerHTML = `<span class="tag">${esc(L(c.name))}</span><time>${fmtTime(r.t)}</time><span class="no">No.${records.length + 1}</span>`;
   $("subs").innerHTML = optBtns(c.subs, r.sub);
-  // only the first few scenes until "more" is pressed, so the confirm button stays on one screen
-  // (a chosen scene further down stays visible)
-  const all = scenesOpen, shown = SCENES.filter((v, i) => all || i < SCENES_SHOWN || v === r.scene);
-  $("scenes").innerHTML = optBtns(shown, r.scene)
-    + `<button class="more" type="button">${all ? tr("閉じる", "收起") : tr(`ほか${SCENES.length - SCENES_SHOWN}件`, `其他${SCENES.length - SCENES_SHOWN}项`)}</button>`;
+  $("scenes").innerHTML = optBtns(SCENES, r.scene) + `<button class="more" type="button"></button>`;
+  fitScenes();
   $("memo").value = r.memo || "";
   if (!scrollToTop) return;
   const top = $("stepDetail").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8;
   if (top < 0 || top > innerHeight * 0.6) scrollTo({ top: scrollY + top, behavior: "smooth" });
 }
+// Only the scenes that fit in two rows (with the "more" button) until "more" is pressed, so the
+// confirm button stays on one screen; a chosen scene further down stays visible.
+function fitScenes() {
+  const box = $("scenes"), opts = [...box.querySelectorAll(".opt")], more = box.querySelector(".more");
+  if (!more) return;
+  opts.forEach(b => b.hidden = false);
+  if (scenesOpen) { more.hidden = false; more.textContent = tr("閉じる", "收起"); return }
+  more.hidden = true;
+  if (!opts.length || !box.offsetParent) return;
+  const row2 = opts[0].offsetTop + opts[0].offsetHeight * 1.5; // anything starting below this is on row 3 or later
+  const fits = () => [...opts, more].every(b => b.hidden || b.offsetTop <= row2);
+  if (fits()) return;
+  more.hidden = false;
+  const label = () => { const n = opts.filter(b => b.hidden).length; more.textContent = tr(`ほか${n}件`, `其他${n}项`) };
+  label();
+  for (let i = opts.length - 1; i >= 0 && !fits(); i--) if (!opts[i].classList.contains("sel")) { opts[i].hidden = true; label() }
+}
+addEventListener("resize", () => { if (draft) fitScenes() });
 function setField(field, v) {
   const r = draft; if (!r) return;
   r[field] = r[field] === v ? "" : v; openDetail();
