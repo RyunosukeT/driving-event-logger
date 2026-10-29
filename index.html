@@ -432,7 +432,7 @@ $("cancel").addEventListener("click", () => { draft = null; openDetail(); toast(
 function renderTable() {
   $("count").textContent = records.length ? tr(`${records.length}件`, `${records.length}条`) : "";
   renderMap(records);
-  if (!records.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。上の分類を押すと、その時刻と位置で記録が始まります。", "还没有记录。按上方的分类，即以当时的时间和位置开始记录。")}</p>`; return }
+  if (!records.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。", "还没有记录。")}</p>`; return }
   $("tbody").innerHTML = records.map((r, i) => {
     const c = catOf(r.cat), sub = [L(r.scene), r.memo].filter(Boolean).map(esc).join(" · ");
     return `<div class="item${r.sub ? "" : " pending"}" data-c="${c.id}" data-id="${r.id}"><span class="bar"></span>
@@ -551,7 +551,7 @@ function drawMap() {
   const el = $("map"), w = el.clientWidth, h = el.clientHeight;
   if (!map.pts.length) {
     mapImgs.clear();
-    el.innerHTML = `<div class="msg">${tr("位置のある記録がありません。記録時に位置が取れた記録がここに表示されます。", "没有带位置的记录。记录时获取到位置的记录会显示在这里。")}</div>`;
+    el.innerHTML = `<div class="msg">${tr("位置のある記録がありません。", "没有带位置的记录。")}</div>`;
     return;
   }
   if (!el.querySelector(".zoom")) {
