@@ -1,7 +1,13 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>試乗記録ツール</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="試乗記録">
+<meta name="theme-color" content="#f4f3ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0f" media="(prefers-color-scheme: dark)">
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <style>
 /* Calm, card-based layout: one ink-coloured primary action, category colour only as accents. */
 :root {
@@ -118,6 +124,7 @@ h1 b { color: var(--fg); font-weight: 700 }
 .map .zoom { position: absolute; right: 8px; top: 8px; z-index: 3; display: grid; gap: 6px }
 .map .zoom button { width: 38px; height: 38px; padding: 0; font-size: 18px; font-weight: 700; background: var(--card); color: var(--fg); border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.25) }
 .map .zoom button.fit { font-size: 12px }
+.map .offline { position: absolute; left: 0; right: 56px; top: 0; border-bottom-right-radius: 6px; z-index: 3; font-size: 12px; padding: 4px 8px; text-align: center; background: color-mix(in srgb, var(--warn) 88%, transparent); color: #fff; font-weight: 600 }
 .map .credit { position: absolute; right: 0; bottom: 0; z-index: 3; font-size: 10px; padding: 1px 6px; background: rgba(255,255,255,.75); color: #333 }
 .map .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px; color: var(--muted); background: var(--card); z-index: 4 }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted) }
@@ -131,6 +138,8 @@ h1 b { color: var(--fg); font-weight: 700 }
 
 /* overlays */
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--ink-fg); padding: 10px 18px; border-radius: 99px; font-weight: 600; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); box-shadow: var(--shadow) }
+.update { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 20; max-width: calc(100% - 32px);
+  min-height: 44px; padding: 0 18px; border-radius: 99px; font-weight: 600; white-space: nowrap; background: var(--ink); color: var(--ink-fg); box-shadow: var(--shadow) }
 .modal { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .4); display: grid; place-items: center; padding: 16px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px) }
 .modal .box { background: var(--card); border-radius: 22px; padding: 20px; width: min(420px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
 .modal .box > .btn { width: 100% }
@@ -195,6 +204,7 @@ textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: u
 </div>
 
 <div class="modal" id="modal" hidden></div>
+<button class="update" id="update" type="button" hidden data-zh="有新版本（点击更新）">新しい版があります（タップで更新）</button>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -535,6 +545,7 @@ function drawMap() {
     mapImgs.clear();
     el.innerHTML = `<div class="tiles"></div><div class="pins"></div>
       <div class="zoom"><button type="button" data-z="1" aria-label="${tr("拡大", "放大")}">＋</button><button type="button" data-z="-1" aria-label="${tr("縮小", "缩小")}">−</button><button type="button" class="fit" data-z="fit">${tr("全体", "全部")}</button></div>
+      <div class="offline" hidden>${tr("オフライン：表示済みの範囲のみ地図が出ます", "离线：仅显示加载过的地图范围")}</div>
       <div class="credit">© 高德地图</div>`;
   }
   if (!w) return;
@@ -543,11 +554,12 @@ function drawMap() {
     for (let tx = Math.floor(ox / TILE); tx * TILE < ox + w; tx++) {
       const key = `${map.z}/${tx}/${ty}`; keep.add(key);
       let img = mapImgs.get(key);
-      if (!img) { img = new Image(); img.alt = ""; img.src = tileUrl((tx % n + n) % n, ty, map.z); tiles.appendChild(img); mapImgs.set(key, img) }
+      if (!img) { img = new Image(); img.alt = ""; img.onerror = () => img.style.visibility = "hidden"; img.src = tileUrl((tx % n + n) % n, ty, map.z); tiles.appendChild(img); mapImgs.set(key, img) }
       img.style.left = tx * TILE - ox + "px"; img.style.top = ty * TILE - oy + "px";
     }
   }
   for (const [key, img] of mapImgs) if (!keep.has(key)) { img.remove(); mapImgs.delete(key) }
+  el.querySelector(".offline").hidden = navigator.onLine;
   // selected pin last so it sits on top
   const pts = [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel));
   el.querySelector(".pins").innerHTML = pts.map(p => `<button type="button" class="pin${p.r.id === map.sel ? " sel" : ""}" data-c="${p.r.cat}" data-id="${p.r.id}"
@@ -848,6 +860,32 @@ function openPasteBox(msg, text = "") {
 /* ---- toast ---- */
 let tt;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 2200) }
+
+/* ---- offline (PWA): sw.js caches the app, fonts and map tiles ---- */
+// back online: reload the tiles that failed while offline
+addEventListener("online", () => { mapImgs.forEach(img => img.remove()); mapImgs.clear(); if (map.pts.length) drawMap() });
+addEventListener("offline", () => { if (map.pts.length) drawMap() });
+// Amap links need a connection
+document.addEventListener("click", (e) => {
+  if (navigator.onLine || !e.target.closest('a[href^="https://uri.amap.com/"]')) return;
+  e.preventDefault();
+  toast(tr("オフラインのため高徳地図を開けません", "离线中，无法打开高德地图"));
+});
+// ask the browser not to clear the records when storage runs low
+try { navigator.storage?.persist?.().catch(() => {}) } catch {}
+if ("serviceWorker" in navigator) {
+  const showUpdate = () => { $("update").hidden = false };
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("message", (e) => { if (e.data === "updated") showUpdate() });
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) showUpdate() });
+  const check = () => navigator.serviceWorker.controller?.postMessage("check");
+  check(); addEventListener("online", check);
+  $("update").onclick = () => {
+    if (draft && !confirm(tr("入力中の記録は破棄されます。更新しますか？", "正在输入的记录将被丢弃。要更新吗？"))) return;
+    location.reload();
+  };
+}
 
 applyLang();
 </script>
