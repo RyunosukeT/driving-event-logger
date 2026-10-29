@@ -190,7 +190,7 @@ textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); f
         <div class="tablebox"><table class="sum" id="sum2"></table></div>
       </section>
       <section class="panel">
-        <div class="sumhead"><p class="label"><span data-zh="事件地点地图">イベント地点の地図</span> <span id="mapCount"></span></p></div>
+        <div class="sumhead"><p class="label"><span data-zh="事件地点地图">イベント地点の地図</span> <span id="mapCount"></span></p><button class="btn primary" id="saveMap" data-zh="保存图片">画像を保存</button></div>
         <div class="map" id="map"></div>
         <div class="legend" id="mapLegend"></div>
         <div class="mapinfo" id="mapInfo" hidden></div>
@@ -294,7 +294,7 @@ function posFromLink(url) {
 }
 function amapUrl(r) {
   const g = inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
-  const name = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""} ${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}`.replace(/ +/g, " "));
+  const name = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""} ${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}${r.memo ? " " + r.memo : ""}`.replace(/\s+/g, " "));
   return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
 }
 const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("高徳地図", "高德地图")}</a>`;
@@ -632,7 +632,7 @@ function drawMap() {
   // selected pin last so it sits on top
   const pts = [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel));
   el.querySelector(".pins").innerHTML = pts.map(p => `<button type="button" class="pin${p.r.id === map.sel ? " sel" : ""}" data-c="${p.r.cat}" data-id="${p.r.id}"
-    style="left:${(p.x * n - ox).toFixed(1)}px;top:${(p.y * n - oy).toFixed(1)}px" aria-label="No.${records.indexOf(p.r) + 1} ${esc(L(catOf(p.r.cat).name))} ${esc(L(p.r.sub))}"></button>`).join("");
+    style="left:${(p.x * n - ox).toFixed(1)}px;top:${(p.y * n - oy).toFixed(1)}px" title="No.${records.indexOf(p.r) + 1} ${esc(L(catOf(p.r.cat).name))} ${esc(L(p.r.sub))}${p.r.memo ? " " + esc(p.r.memo) : ""}"></button>`).join("");
 }
 function renderMapInfo() {
   const r = records.find(x => x.id === map.sel), box = $("mapInfo");
@@ -706,6 +706,69 @@ $("map").addEventListener("click", (e) => {
 });
 new ResizeObserver(() => drawMap()).observe($("map"));
 
+// PNG of the map as shown, with a caption (filters, count) and legend underneath.
+// Tiles are reloaded with CORS so the canvas stays exportable; if that fails the image is saved without them.
+const loadCorsImg = (src) => new Promise((ok) => {
+  const img = new Image(); img.crossOrigin = "anonymous";
+  const t = setTimeout(() => ok(null), 8000);
+  img.onload = () => { clearTimeout(t); ok(img) }; img.onerror = () => { clearTimeout(t); ok(null) };
+  img.src = src;
+});
+async function saveMapImage() {
+  if (!map.pts.length) { toast(tr("地図に出す記録がありません", "没有可显示在地图上的记录")); return }
+  const el = $("map"), w = el.clientWidth, h = el.clientHeight, css = getComputedStyle(document.body);
+  const col = (v) => css.getPropertyValue(v).trim(), font = css.fontFamily, k = Math.min(3, Math.max(2, devicePixelRatio || 1));
+  const filters = [$("fDate"), $("fRoad"), $("fCar")].map(sel => sel.options[sel.selectedIndex]?.text).filter(Boolean).join(" / ");
+  const legend = CATS.map(c => [c, map.pts.filter(p => p.r.cat === c.id).length]).filter(([, n]) => n);
+  const cv = document.createElement("canvas"), g = cv.getContext("2d");
+  // lay the legend out in rows that fit the width
+  g.font = `12px ${font}`;
+  const rows = [[]]; let lx = 10;
+  for (const [c, cnt] of legend) {
+    const t = `${L(c.name)} ${cnt}`, tw = g.measureText(t).width + 14;
+    if (lx + tw > w - 10 && rows.at(-1).length) { rows.push([]); lx = 10 }
+    rows.at(-1).push({ c, t, x: lx }); lx += tw + 14;
+  }
+  const capH = 34 + rows.length * 20;
+  cv.width = w * k; cv.height = (h + capH) * k; g.scale(k, k);
+  const draw = async (withTiles) => {
+    g.fillStyle = "#e8e4da"; g.fillRect(0, 0, w, h);
+    let tilesOk = true;
+    if (withTiles) {
+      const tiles = await Promise.all([...mapImgs.values()].map(async (img) => [img, await loadCorsImg(img.src)]));
+      for (const [img, c] of tiles) { if (c) g.drawImage(c, parseFloat(img.style.left), parseFloat(img.style.top), TILE, TILE); else tilesOk = false }
+    }
+    const n = 2 ** map.z, ox = map.cx * n - w / 2, oy = map.cy * n - h / 2;
+    for (const p of [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel))) {
+      const r = p.r.id === map.sel ? 11 : 7;
+      g.beginPath(); g.arc(p.x * n - ox, p.y * n - oy, r, 0, 2 * Math.PI);
+      g.fillStyle = col("--" + p.r.cat); g.fill(); g.lineWidth = 2; g.strokeStyle = "#fff"; g.stroke();
+    }
+    g.font = `10px ${font}`; g.textAlign = "right"; g.textBaseline = "bottom";
+    const credit = "© 高德地图", cw = g.measureText(credit).width + 12;
+    g.fillStyle = "rgba(255,255,255,.75)"; g.fillRect(w - cw, h - 14, cw, 14); g.fillStyle = "#333"; g.fillText(credit, w - 6, h - 1);
+    g.fillStyle = col("--panel"); g.fillRect(0, h, w, capH);
+    g.textAlign = "left"; g.textBaseline = "middle"; g.fillStyle = col("--fg"); g.font = `700 13px ${font}`;
+    g.fillText(`${tr("イベント地点の地図", "事件地点地图")} ${tr(`${map.pts.length}件`, `${map.pts.length}条`)}  ${filters}`, 10, h + 16, w - 20);
+    g.font = `12px ${font}`;
+    rows.forEach((row, i) => row.forEach(({ c, t, x }) => {
+      const y = h + 40 + i * 20;
+      g.beginPath(); g.arc(x + 5, y, 5, 0, 2 * Math.PI); g.fillStyle = col("--" + c.id); g.fill();
+      g.fillStyle = col("--muted"); g.fillText(t, x + 14, y);
+    }));
+    return tilesOk;
+  };
+  const btn = $("saveMap"); btn.disabled = true;
+  try {
+    let tilesOk = await draw(true), blob = null;
+    try { blob = await new Promise(ok => cv.toBlob(ok, "image/png")) } catch {}
+    if (!blob) { tilesOk = false; g.clearRect(0, 0, w, h + capH); await draw(false); blob = await new Promise(ok => cv.toBlob(ok, "image/png")) }
+    saveBlob(blob, "png");
+    toast(tilesOk ? tr("地図の画像を保存しました", "已保存地图图片") : tr("背景の地図を読み込めなかったため、ピンだけの画像を保存しました", "无法读取底图，已保存仅含标记的图片"));
+  } finally { btn.disabled = false }
+}
+$("saveMap").addEventListener("click", saveMapImage);
+
 /* ---- Excel (.xlsx) export: written by hand (stored ZIP + SpreadsheetML) so no library has to load ---- */
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 });
 function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0 }
@@ -754,13 +817,16 @@ function downloadXlsx() {
     { name: tr("日付・車名別", "按日期・车名"), rows: sum1Rows(records), widths: sumW },
     { name: tr("シーン別", "按场景"), rows: sum2Rows(records), widths: sumW.slice(1) },
   ]);
+  saveBlob(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "xlsx");
+  toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
+}
+function saveBlob(blob, ext) {
   const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-  a.download = `drive_events_${stamp}.xlsx`; // ASCII: some browsers drop non-ASCII download names
+  a.href = URL.createObjectURL(blob);
+  a.download = `drive_events_${stamp}.${ext}`; // ASCII: some browsers drop non-ASCII download names
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
 }
 $("fDate").addEventListener("change", renderSummary);
 $("fCar").addEventListener("change", renderSummary);
