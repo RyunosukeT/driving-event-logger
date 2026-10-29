@@ -38,8 +38,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0) }
 
 /* header */
-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
   padding: 12px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)) }
 header > * { max-width: 640px; margin-inline: auto }
 .top { display: flex; align-items: center; gap: 10px }
