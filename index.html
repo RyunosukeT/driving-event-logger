@@ -294,7 +294,9 @@ function posFromLink(url) {
 }
 function amapUrl(r) {
   const g = inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.lat, lon: r.lon };
-  const name = encodeURIComponent(`${L(catOf(r.cat).name)} ${L(r.sub) || ""} ${fmtDate(r.t)} ${fmtTime(r.t)}${r.car ? " " + r.car : ""}${r.memo ? " " + r.memo : ""}`.replace(/\s+/g, " "));
+  // Amap cuts long pin names short, so the memo comes right after the category and the date/time is kept short
+  const d = new Date(r.t), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const name = encodeURIComponent([`${L(catOf(r.cat).name)} ${L(r.sub)}`.trim(), r.memo, r.car, when].filter(Boolean).join("｜").replace(/\s+/g, " "));
   return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
 }
 const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("高徳地図", "高德地图")}</a>`;
