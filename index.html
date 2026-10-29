@@ -575,30 +575,47 @@ function miniMap(el, cat, p, onMove, home = p) {
     <div class="zoom"><button type="button" data-z="1" aria-label="${tr("拡大", "放大")}">＋</button><button type="button" data-z="-1" aria-label="${tr("縮小", "缩小")}">−</button><button type="button" class="fit" data-z="0">${tr("戻す", "复位")}</button></div>
     <div class="offline" hidden>${tr("オフライン：表示済みの範囲のみ地図が出ます", "离线：仅显示加载过的地图范围")}</div>
     <div class="credit">© 高德地图</div>`;
-  // one finger drags the map (or the pin, when it can be moved), the buttons (or the wheel) zoom around the centre
-  let drag = null, wheelAcc = 0;
+  // one finger drags the map (or the pin, when it can be moved), two fingers pinch (a whole zoom level per step),
+  // the buttons (or the wheel) zoom around the centre
+  const ptrs = new Map();
+  let g = null, wheelAcc = 0;
   const at = (e) => { const rect = el.getBoundingClientRect(), n = 2 ** mini.z; return { x: mini.cx + (e.clientX - rect.left - rect.width / 2) / n, y: mini.cy + (e.clientY - rect.top - rect.height / 2) / n } };
+  const pinchDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) };
   el.onpointerdown = (e) => {
-    if (drag || e.target.closest(".zoom")) return;
+    if (ptrs.size >= 2 || e.target.closest(".zoom")) return;
     el.setPointerCapture(e.pointerId);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, pin: !!onMove && !!e.target.closest(".pin") };
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1) g = { moved: 0, pin: !!onMove && !!mini.p && !!e.target.closest(".pin"), pinMoved: false, pinch: false };
+    else { g.pinch = true; g.d = pinchDist() }
     el.classList.add("drag");
   };
   el.onpointermove = (e) => {
-    if (drag?.id !== e.pointerId) return;
-    const n = 2 ** mini.z, dx = (e.clientX - drag.x) / n, dy = (e.clientY - drag.y) / n;
-    drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
-    if (drag.pin) mini.p = { x: mini.p.x + dx, y: Math.max(0, Math.min(TILE, mini.p.y + dy)) };
+    const p = ptrs.get(e.pointerId); if (!p) return;
+    const n = 2 ** mini.z, dx = (e.clientX - p.x) / n, dy = (e.clientY - p.y) / n;
+    p.x = e.clientX; p.y = e.clientY;
+    if (g.pinch) {
+      if (ptrs.size < 2) return;
+      const d = pinchDist(), ratio = d / g.d;
+      if (ratio > 1.6 || ratio < 0.625) {
+        const rect = el.getBoundingClientRect(), [a, b] = [...ptrs.values()];
+        zoomMini(ratio > 1 ? 1 : -1, (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
+        g.d = d;
+      }
+      return;
+    }
+    g.moved += Math.abs(dx * n) + Math.abs(dy * n);
+    if (g.pin) { mini.p = { x: mini.p.x + dx, y: Math.max(0, Math.min(TILE, mini.p.y + dy)) }; g.pinMoved = true }
     else { mini.cx -= dx; mini.cy = Math.max(0, Math.min(TILE, mini.cy - dy)) }
-    drag.x = e.clientX; drag.y = e.clientY; drawMini();
+    drawMini();
   };
   el.onpointerup = el.onpointercancel = (e) => {
-    if (drag?.id !== e.pointerId) return;
-    if (onMove && (drag.pin ? drag.moved > 0 : e.type === "pointerup" && drag.moved < 8)) {
-      if (!drag.pin) { mini.p = at(e); drawMini() }
-      onMove(mini.p);
+    if (!ptrs.delete(e.pointerId) || ptrs.size) return;
+    if (onMove) {
+      // a tap (not a drag or a pinch) puts the pin there
+      if (!g.pin && !g.pinch && e.type === "pointerup" && g.moved < 8) { mini.p = at(e); drawMini(); onMove(mini.p) }
+      else if (g.pinMoved) onMove(mini.p);
     }
-    drag = null; el.classList.remove("drag");
+    g = null; el.classList.remove("drag");
   };
   el.onwheel = (e) => { e.preventDefault(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) < 60) return; zoomMini(wheelAcc < 0 ? 1 : -1); wheelAcc = 0 };
   el.onclick = (e) => {
@@ -607,7 +624,14 @@ function miniMap(el, cat, p, onMove, home = p) {
   };
   drawMini();
 }
-function zoomMini(dz) { mini.z = Math.max(MINZ, Math.min(MAXZ, mini.z + dz)); drawMini() }
+// zoom by dz whole levels, keeping the point (px, py) inside the map where it is (default: the centre)
+function zoomMini(dz, px, py) {
+  const el = mini.el, z = Math.max(MINZ, Math.min(MAXZ, mini.z + dz));
+  if (z === mini.z) return;
+  const fx = px == null ? 0 : px - el.clientWidth / 2, fy = py == null ? 0 : py - el.clientHeight / 2, n0 = 2 ** mini.z, n1 = 2 ** z;
+  mini.cx += fx / n0 - fx / n1; mini.cy += fy / n0 - fy / n1; mini.z = z;
+  drawMini();
+}
 function drawMini() {
   const el = mini.el; if (!el?.isConnected) return;
   const w = el.clientWidth, h = el.clientHeight, n = 2 ** mini.z, ox = mini.cx * n - w / 2, oy = mini.cy * n - h / 2;
