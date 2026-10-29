@@ -70,6 +70,11 @@ table.sum th.grp { text-align: center; border-left: 1px solid var(--line) }
 table.sum .bl { border-left: 1px solid var(--line) }
 table.sum tr.total td { font-weight: 700; background: var(--bg) }
 table.sum td.t, table.sum th.t { font-weight: 700 }
+/* the row label columns stay put while the counts scroll sideways */
+table.sum .lead { position: sticky; left: 0; z-index: 1; background: var(--panel) }
+table.sum th.lead { z-index: 2; background: var(--bg) }
+table.sum .lead.l1 { left: var(--l1, 0px) }
+table.sum .lead.end { box-shadow: inset -1px 0 var(--line) }
 .map { position: relative; height: 340px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #e8e4da; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab }
 .map.drag { cursor: grabbing }
 .map img { position: absolute; width: 256px; height: 256px; max-width: none; pointer-events: none }
@@ -81,6 +86,7 @@ table.sum td.t, table.sum th.t { font-weight: 700 }
 .map .zoom button.fit { font-size: 12px }
 .map .offline { position: absolute; left: 0; right: 56px; top: 0; border-bottom-right-radius: 6px; z-index: 3; font-size: 12px; padding: 4px 8px; text-align: center; background: color-mix(in srgb, var(--warn) 88%, transparent); color: #fff; font-weight: 600 }
 .map .credit { position: absolute; right: 0; bottom: 0; z-index: 3; font-size: 10px; padding: 1px 6px; background: rgba(255,255,255,.75); color: #333 }
+.map.mini { height: 240px }
 .map .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px; color: var(--muted); background: var(--panel); z-index: 4 }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted) }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px }
@@ -113,6 +119,8 @@ th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: le
 th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0 }
 td.num { font-family: var(--font-mono); font-size: 12px }
 td.memo-c { white-space: normal; min-width: 140px }
+#tbody tr[data-id] { cursor: pointer }
+@media (hover: hover) { #tbody tr[data-id]:hover td { background: color-mix(in srgb, var(--accent) 8%, transparent) } }
 tr.pending td { background: color-mix(in srgb, var(--warn) 12%, transparent) }
 td a { color: var(--accent) }
 .act button { padding: 6px 10px; font-size: 12px; min-height: 34px }
@@ -121,6 +129,9 @@ td a { color: var(--accent) }
 .modal { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, #000 45%, transparent); display: grid; place-items: center; padding: 16px }
 .modal .box { background: var(--panel); border-radius: 10px; padding: 16px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90%; overflow: auto }
 .modal .box > .btn { width: 100% }
+.dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 14px }
+.dl dt { color: var(--muted); font-size: 12px; font-weight: 600; padding-top: 2px }
+.dl dd { margin: 0; overflow-wrap: anywhere }
 .modal label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600 }
 textarea#impText { width: 100%; height: 160px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px }
 .langbtn { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20;
@@ -438,8 +449,9 @@ function renderTable() {
   }).join("");
 }
 $("tbody").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-a]"); if (!b) return;
-  const id = b.closest("tr").dataset.id;
+  const row = e.target.closest("tr[data-id]"); if (!row) return;
+  const b = e.target.closest("button[data-a]"), id = row.dataset.id;
+  if (!b) { if (!e.target.closest("a")) detailModal(id); return } // a tap elsewhere on the row shows the record
   if (b.dataset.a === "edit") editModal(id);
   else confirmModal(tr("この記録を削除しますか？", "要删除这条记录吗？"), () => { records = records.filter(x => x.id !== id); save(); renderTable() });
 });
@@ -513,6 +525,57 @@ $("copy").addEventListener("click", () => {
   $("exXlsx").onclick = () => { closeModal(); downloadXlsx() };
 });
 
+/* ---- record detail popup: the record and a small Amap map around where it was taken ---- */
+const mini = { r: null, z: 16, cx: 0, cy: 0, imgs: new Map() };
+function detailModal(id) {
+  const r = records.find(x => x.id === id); if (!r) return;
+  const c = catOf(r.cat), hasPos = r.lat != null && r.lon != null;
+  const item = (k, v) => `<dt>${k}</dt><dd>${esc(v) || "—"}</dd>`;
+  $("modal").innerHTML = `<div class="box">
+    <div class="row" style="gap:6px 10px"><b>No.${records.indexOf(r) + 1}</b><span class="chip" data-c="${c.id}">${esc(L(c.name))}</span><span class="note">${fmtDate(r.t)} ${fmtTime(r.t)}</span></div>
+    <dl class="dl">${item(tr("車名", "车名"), r.car)}${item(tr("詳細", "详细"), L(r.sub))}${c.noScene ? "" : item(tr("道路", "道路"), L(r.road)) + item(tr("シーン", "场景"), L(r.scene))}${item(tr("メモ", "备注"), r.memo)}</dl>
+    <div class="map mini" id="dMap"></div>
+    ${hasPos ? `<p class="note">${mapLinks(r)}</p>` : ""}
+    <div class="row" style="justify-content:flex-end"><button class="btn danger ghost" id="dDel">${tr("削除", "删除")}</button><button class="btn" id="dEdit">${tr("編集", "编辑")}</button><button class="btn primary" id="dNo">${tr("閉じる", "关闭")}</button></div></div>`;
+  $("modal").hidden = false;
+  $("dNo").onclick = closeModal;
+  $("dEdit").onclick = () => editModal(id);
+  $("dDel").onclick = () => confirmModal(tr("この記録を削除しますか？", "要删除这条记录吗？"), () => { records = records.filter(x => x.id !== id); save(); renderTable() });
+  const el = $("dMap");
+  mini.imgs.clear();
+  if (!hasPos) { el.innerHTML = `<div class="msg">${tr("この記録には位置がありません", "这条记录没有位置")}</div>`; return }
+  const p = project(toGcj(r));
+  Object.assign(mini, { r, z: 16, cx: p.x, cy: p.y });
+  el.innerHTML = `<div class="tiles"></div><span class="pin sel" data-c="${r.cat}"></span>
+    <div class="zoom"><button type="button" data-z="1" aria-label="${tr("拡大", "放大")}">＋</button><button type="button" data-z="-1" aria-label="${tr("縮小", "缩小")}">−</button><button type="button" class="fit" data-z="0">${tr("戻す", "复位")}</button></div>
+    <div class="offline" hidden>${tr("オフライン：表示済みの範囲のみ地図が出ます", "离线：仅显示加载过的地图范围")}</div>
+    <div class="credit">© 高德地图</div>`;
+  // one finger drags, the buttons (or the wheel) zoom around the centre
+  let drag = null, wheelAcc = 0;
+  el.onpointerdown = (e) => { if (drag || e.target.closest(".zoom")) return; el.setPointerCapture(e.pointerId); drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.classList.add("drag") };
+  el.onpointermove = (e) => {
+    if (drag?.id !== e.pointerId) return;
+    const n = 2 ** mini.z;
+    mini.cx -= (e.clientX - drag.x) / n; mini.cy = Math.max(0, Math.min(TILE, mini.cy - (e.clientY - drag.y) / n));
+    drag.x = e.clientX; drag.y = e.clientY; drawMini();
+  };
+  el.onpointerup = el.onpointercancel = (e) => { if (drag?.id === e.pointerId) { drag = null; el.classList.remove("drag") } };
+  el.onwheel = (e) => { e.preventDefault(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) < 60) return; zoomMini(wheelAcc < 0 ? 1 : -1); wheelAcc = 0 };
+  el.onclick = (e) => {
+    const b = e.target.closest(".zoom button"); if (!b) return;
+    if (b.dataset.z === "0") { Object.assign(mini, { z: 16, cx: p.x, cy: p.y }); drawMini() } else zoomMini(+b.dataset.z);
+  };
+  drawMini();
+}
+function zoomMini(dz) { mini.z = Math.max(MINZ, Math.min(MAXZ, mini.z + dz)); drawMini() }
+function drawMini() {
+  const el = $("dMap"); if (!el || !mini.r) return;
+  const w = el.clientWidth, h = el.clientHeight, n = 2 ** mini.z, ox = mini.cx * n - w / 2, oy = mini.cy * n - h / 2, p = project(toGcj(mini.r));
+  placeTiles(el.querySelector(".tiles"), mini.imgs, mini.z, ox, oy, w, h);
+  Object.assign(el.querySelector(".pin").style, { left: (p.x * n - ox).toFixed(1) + "px", top: (p.y * n - oy).toFixed(1) + "px" });
+  el.querySelector(".offline").hidden = navigator.onLine;
+}
+
 /* ---- summary view ---- */
 // placeholder keys for empty values; shown through noneLabel()
 const NOCAR = "\u0000car", NOROAD = "\u0000road", NOSCENE = "\u0000scene";
@@ -533,13 +596,14 @@ function filtered() {
   return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c) && (!rd || (r.road || NOROAD) === rd));
 }
 function sumHead(firstCols) {
-  const lead = firstCols.map(h => `<th rowspan="2">${h}</th>`).join("");
+  const lead = firstCols.map((h, i) => `<th rowspan="2" class="${leadCls(i, firstCols.length)}">${h}</th>`).join("");
   return `<thead><tr>${lead}<th rowspan="2" class="n t">${tr("合計", "总计")}</th>${CATS.map(c => `<th class="grp" colspan="${c.subs.length + 1}">${esc(L(c.name))}</th>`).join("")}</tr>
     <tr>${COLS.map(col => `<th class="n${col.sub == null ? " bl t" : ""}">${esc(colLabel(col))}</th>`).join("")}</tr></thead>`;
 }
+const leadCls = (i, len) => `lead l${i}${i === len - 1 ? " end" : ""}`;
 const cell = (n, cls = "") => `<td class="n${n ? "" : " z"}${cls}">${n}</td>`;
 function sumRow(lead, list, cls = "") {
-  return `<tr class="${cls}">${lead.map(v => `<td>${esc(v)}</td>`).join("")}${cell(list.length, " t")}${countCols(list).map((n, i) => cell(n, COLS[i].sub == null ? " bl t" : "")).join("")}</tr>`;
+  return `<tr class="${cls}">${lead.map((v, i) => `<td class="${leadCls(i, lead.length)}">${esc(v)}</td>`).join("")}${cell(list.length, " t")}${countCols(list).map((n, i) => cell(n, COLS[i].sub == null ? " bl t" : "")).join("")}</tr>`;
 }
 function groups(list = filtered()) {
   const keys = uniq(list.map(r => fmtDate(r.t) + "\u0001" + (r.car || NOCAR))).sort();
@@ -563,9 +627,11 @@ function renderSummary() {
   }
   renderMap(list);
   const total = tr("合計", "总计");
-  $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d, noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>";
+  $("sum1").innerHTML = sumHead([tr("日付", "日期"), tr("車名", "车名")]) + "<tbody>" + rows.map(g => sumRow([g.d.slice(2), noneLabel(g.c)], g.items)).join("") + sumRow([total, ""], list, "total") + "</tbody>"; // YY/MM/DD on screen
   $("sum2").innerHTML = sumHead([tr("シーン", "场景")]) + "<tbody>" + sceneGroups(list).map(g => sumRow([noneLabel(g.s)], g.items)).join("") + sumRow([total], sceneList(list), "total") + "</tbody>";
 }
+// the car column sticks just right of the date column, whatever width that ends up
+new ResizeObserver(() => $("sum1").style.setProperty("--l1", ($("sum1").querySelector("th.l0")?.offsetWidth ?? 0) + "px")).observe($("sum1"));
 const tsvLine = (a) => a.map(cellText).join("\t");
 const tsvCounts = (list) => [list.length, ...countCols(list)];
 function sum1Rows(list) {
@@ -616,6 +682,19 @@ function fitMap() {
   while (z > MINZ && ((x1 - x0) * 2 ** z > w || (y1 - y0) * 2 ** z > h)) z--;
   Object.assign(map, { z, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
 }
+// lay out the tiles covering a w×h view whose top-left is (ox, oy) in zoom-z pixels; imgs keeps one <img> per tile across redraws
+function placeTiles(box, imgs, z, ox, oy, w, h) {
+  const n = 2 ** z, keep = new Set();
+  for (let ty = Math.max(0, Math.floor(oy / TILE)); ty < n && ty * TILE < oy + h; ty++) {
+    for (let tx = Math.floor(ox / TILE); tx * TILE < ox + w; tx++) {
+      const key = `${z}/${tx}/${ty}`; keep.add(key);
+      let img = imgs.get(key);
+      if (!img) { img = new Image(); img.alt = ""; img.onerror = () => img.style.visibility = "hidden"; img.src = tileUrl((tx % n + n) % n, ty, z); box.appendChild(img); imgs.set(key, img) }
+      img.style.left = tx * TILE - ox + "px"; img.style.top = ty * TILE - oy + "px";
+    }
+  }
+  for (const [key, img] of imgs) if (!keep.has(key)) { img.remove(); imgs.delete(key) }
+}
 function drawMap() {
   const el = $("map"), w = el.clientWidth, h = el.clientHeight;
   if (!map.pts.length) {
@@ -631,16 +710,8 @@ function drawMap() {
       <div class="credit">© 高德地图</div>`;
   }
   if (!w) return;
-  const n = 2 ** map.z, ox = map.cx * n - w / 2, oy = map.cy * n - h / 2, tiles = el.querySelector(".tiles"), keep = new Set();
-  for (let ty = Math.max(0, Math.floor(oy / TILE)); ty < n && ty * TILE < oy + h; ty++) {
-    for (let tx = Math.floor(ox / TILE); tx * TILE < ox + w; tx++) {
-      const key = `${map.z}/${tx}/${ty}`; keep.add(key);
-      let img = mapImgs.get(key);
-      if (!img) { img = new Image(); img.alt = ""; img.onerror = () => img.style.visibility = "hidden"; img.src = tileUrl((tx % n + n) % n, ty, map.z); tiles.appendChild(img); mapImgs.set(key, img) }
-      img.style.left = tx * TILE - ox + "px"; img.style.top = ty * TILE - oy + "px";
-    }
-  }
-  for (const [key, img] of mapImgs) if (!keep.has(key)) { img.remove(); mapImgs.delete(key) }
+  const n = 2 ** map.z, ox = map.cx * n - w / 2, oy = map.cy * n - h / 2;
+  placeTiles(el.querySelector(".tiles"), mapImgs, map.z, ox, oy, w, h);
   el.querySelector(".offline").hidden = navigator.onLine;
   // selected pin last so it sits on top
   const pts = [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel));
