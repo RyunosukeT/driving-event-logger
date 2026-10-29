@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>走行評価記録</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -141,6 +141,9 @@ html:lang(zh-CN) body { font-family: "PingFang SC", "Microsoft YaHei", "Noto San
 textarea#fallback { width: 100%; height: 120px; font-family: var(--font-mono); font-size: 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px }
 @media (max-width: 420px) { .cat { min-height: 64px; font-size: 16px; padding: 4px } .cat .nb { display: inline } #cats { gap: 6px } .cat small { display: none } h1 { font-size: 14px } .clock { font-size: 15px } .gs { grid-template-columns: repeat(2, minmax(0,1fr)) } }
 @media (prefers-reduced-motion: reduce) { .cat:active { transform: none } }
+/* iOS zooms into any focused field under 16px, so every field is at least 16px; no double-tap zoom either */
+input, textarea, select { font-size: 16px !important }
+html { touch-action: manipulation }
 </style>
 
 </head><body>
@@ -1072,6 +1075,10 @@ if ("serviceWorker" in navigator) {
   addEventListener("online", () => check("online"));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { apply(); check("front") } });
 }
+
+// keep the page at its own scale: iOS Safari ignores user-scalable=no, so also stop its pinch gesture
+// (the map's own pinch zoom uses pointer events and keeps working)
+document.addEventListener("gesturestart", (e) => e.preventDefault());
 
 applyLang();
 </script>
