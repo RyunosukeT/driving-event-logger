@@ -35,10 +35,12 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 88px; display: grid; gap: 16px }
 header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px }
-header .in { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px }
-h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin-right: auto }
+header .in { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 8px 14px; white-space: nowrap }
+h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; margin-right: auto; min-width: 6em; overflow: hidden; text-overflow: ellipsis; flex-shrink: 100 }
 .clock { font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums }
-.gps { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
+.gps { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 0 }
+#gpsText { overflow: hidden; text-overflow: ellipsis }
+.dot { flex: none }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted) }
 .gps[data-s="ok"] .dot { background: var(--ok) } .gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
 .wrap > * { min-width: 0 }
