@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>試乗記録ツール</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
@@ -149,6 +149,9 @@ h1 b { color: var(--fg); font-weight: 700 }
 textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--fg); background: var(--soft); border: 0; border-radius: 12px; padding: 10px }
 @media (max-width: 360px) { .cat { min-height: 76px; padding: 10px } .cat b { font-size: 15px } .clock { font-size: 19px } }
 @media (prefers-reduced-motion: reduce) { .cat, #subs .opt { transition: none } .cat:active { transform: none } }
+/* iOS zooms into any focused field under 16px, so every field is at least 16px; no double-tap zoom either */
+input, textarea, select { font-size: 16px !important }
+html { touch-action: manipulation }
 </style>
 
 </head><body>
@@ -906,6 +909,10 @@ if ("serviceWorker" in navigator) {
   addEventListener("online", () => check("online"));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { apply(); check("front") } });
 }
+
+// keep the page at its own scale: iOS Safari ignores user-scalable=no, so also stop its pinch gesture
+// (the map's own pinch zoom uses pointer events and keeps working)
+document.addEventListener("gesturestart", (e) => e.preventDefault());
 
 applyLang();
 </script>
