@@ -48,7 +48,7 @@ h1 b { color: var(--fg); font-weight: 700 }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 0%, transparent) }
 .gps[data-s="ok"] .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent) }
 .gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
-.clock { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em }
+.clock { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em }
 .langbtn { font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-radius: 99px; background: var(--soft); min-height: 30px }
 #car { display: block; width: 100%; margin-top: 10px; font-family: inherit; color: var(--fg); border: 0; background: var(--soft); border-radius: 12px; padding: 10px 14px; min-height: 42px; font-size: 14px }
 
@@ -147,7 +147,7 @@ h1 b { color: var(--fg); font-weight: 700 }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .note { font-size: 13px; color: var(--muted); margin: 0 }
 textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--fg); background: var(--soft); border: 0; border-radius: 12px; padding: 10px }
-@media (max-width: 360px) { .cat { min-height: 76px; padding: 10px } .cat b { font-size: 15px } .clock { font-size: 19px } }
+@media (max-width: 360px) { .cat { min-height: 76px; padding: 10px } .cat b { font-size: 15px } .clock { font-size: 17px } }
 @media (prefers-reduced-motion: reduce) { .cat, #subs .opt { transition: none } .cat:active { transform: none } }
 /* iOS zooms into any focused field under 16px, so every field is at least 16px; no double-tap zoom either */
 input, textarea, select { font-size: 16px !important }
