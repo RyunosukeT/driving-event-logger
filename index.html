@@ -765,8 +765,8 @@ async function saveMapImage() {
     let tilesOk = await draw(true), blob = null;
     try { blob = await new Promise(ok => cv.toBlob(ok, "image/png")) } catch {}
     if (!blob) { tilesOk = false; g.clearRect(0, 0, w, h + capH); await draw(false); blob = await new Promise(ok => cv.toBlob(ok, "image/png")) }
-    saveBlob(blob, "png");
-    toast(tilesOk ? tr("地図の画像を保存しました", "已保存地图图片") : tr("背景の地図を読み込めなかったため、ピンだけの画像を保存しました", "无法读取底图，已保存仅含标记的图片"));
+    if (!tilesOk) toast(tr("背景の地図を読み込めなかったため、ピンだけの画像にしました", "无法读取底图，图片仅含标记"));
+    await shareOrSave(blob, "png", tilesOk && tr("地図の画像を保存しました", "已保存地图图片"));
   } finally { btn.disabled = false }
 }
 $("saveMap").addEventListener("click", saveMapImage);
@@ -822,11 +822,34 @@ function downloadXlsx() {
   saveBlob(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "xlsx");
   toast(tr("Excelファイルを保存しました", "已保存Excel文件"));
 }
+// ASCII: some browsers drop non-ASCII download names
+const fileName = (ext) => { const d = new Date(); return `drive_events_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.${ext}` };
+// Where files can be shared (iPhone, Android) open the share sheet, as the Files app's share button does; otherwise download
+async function shareOrSave(blob, ext, okMsg) {
+  const file = new File([blob], fileName(ext), { type: blob.type });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return }
+    catch (e) {
+      if (e.name === "AbortError") return; // closed the share sheet
+      // drawing took long enough that the browser no longer counts the share as following the tap: ask for one more tap
+      if (e.name === "NotAllowedError") { shareModal(file); return }
+    }
+  }
+  saveBlob(blob, ext);
+  if (okMsg) toast(okMsg);
+}
+function shareModal(file) {
+  $("modal").innerHTML = `<div class="box"><b>${tr("画像の準備ができました", "图片已准备好")}</b>
+    <button class="btn primary" id="shNow">${tr("共有・保存", "分享・保存")}</button>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="shNo">${tr("閉じる", "关闭")}</button></div></div>`;
+  $("modal").hidden = false;
+  $("shNo").onclick = closeModal;
+  $("shNow").onclick = async () => { closeModal(); try { await navigator.share({ files: [file] }) } catch {} };
+}
 function saveBlob(blob, ext) {
-  const d = new Date(), stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `drive_events_${stamp}.${ext}`; // ASCII: some browsers drop non-ASCII download names
+  a.download = fileName(ext);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
