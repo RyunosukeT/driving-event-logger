@@ -982,13 +982,23 @@ document.addEventListener("click", (e) => {
 // ask the browser not to clear the records when storage runs low
 try { navigator.storage?.persist?.().catch(() => {}) } catch {}
 if ("serviceWorker" in navigator) {
-  const showUpdate = () => { $("update").hidden = false };
+  // A new version is applied by reloading right away, unless that would throw away something in progress
+  // (a record being filled in, an open dialog, text being typed); then the update button waits for a tap.
+  const busy = () => draft || !$("modal").hidden || document.activeElement?.matches("input, textarea");
+  const showUpdate = () => {
+    if (busy()) { $("update").hidden = false; return }
+    try { sessionStorage.setItem("drive-event-logger-updated", "1") } catch {}
+    location.reload();
+  };
+  try { if (sessionStorage.getItem("drive-event-logger-updated")) { sessionStorage.removeItem("drive-event-logger-updated"); setTimeout(() => toast(tr("最新版に更新しました", "已更新到最新版本")), 300) } } catch {}
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("sw.js").catch(() => {});
   navigator.serviceWorker.addEventListener("message", (e) => { if (e.data === "updated") showUpdate() });
   navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) showUpdate() });
   const check = () => navigator.serviceWorker.controller?.postMessage("check");
+  // check at launch, when the installed app comes back to the front, and when the connection returns
   check(); addEventListener("online", check);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check() });
   $("update").onclick = () => {
     if (draft && !confirm(tr("入力中の記録は破棄されます。更新しますか？", "正在输入的记录将被丢弃。要更新吗？"))) return;
     location.reload();
