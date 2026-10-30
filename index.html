@@ -704,6 +704,19 @@ function setOptions(sel, values, allLabel) {
   sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${esc(v)}">${esc(noneLabel(v))}</option>`).join("");
   sel.value = values.includes(prev) ? prev : "";
 }
+// each dropdown offers only values found in the records that match the other two choices
+const SUM_KEYS = { fDate: r => fmtDate(r.t), fRoad: r => r.road || NOROAD, fCar: r => r.car || NOCAR };
+function fillSumFilters() {
+  for (let pass = 0; pass < 3; pass++) { // a choice that drops out (e.g. its records were deleted) is cleared, so fill again
+    const cur = Object.fromEntries(Object.keys(SUM_KEYS).map(id => [id, $(id).value]));
+    const pool = (id) => records.filter(r => Object.entries(SUM_KEYS).every(([id2, get]) => id2 === id || !cur[id2] || get(r) === cur[id2]));
+    const vals = (id) => uniq(pool(id).map(SUM_KEYS[id]));
+    setOptions($("fDate"), vals("fDate").sort().reverse(), tr("すべての日付", "全部日期"));
+    setOptions($("fRoad"), [...ROADS, NOROAD].filter(v => vals("fRoad").includes(v)), tr("すべての道路", "全部道路"));
+    setOptions($("fCar"), vals("fCar").sort(), tr("すべての車", "全部车辆"));
+    if (Object.keys(cur).every(id => $(id).value === cur[id])) return;
+  }
+}
 function filtered() {
   const d = $("fDate").value, c = $("fCar").value, rd = $("fRoad").value;
   return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c) && (!rd || (r.road || NOROAD) === rd));
@@ -729,9 +742,7 @@ function sceneGroups(list) {
 }
 function renderSummary() {
   if ($("sumView").hidden) return;
-  setOptions($("fDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), tr("すべての日付", "全部日期"));
-  setOptions($("fRoad"), [...ROADS, NOROAD].filter(v => records.some(r => (r.road || NOROAD) === v)), tr("すべての道路", "全部道路"));
-  setOptions($("fCar"), uniq(records.map(r => r.car || NOCAR)).sort(), tr("すべての車", "全部车辆"));
+  fillSumFilters();
   const { list, rows } = groups();
   $("sumCount").textContent = tr(`（${list.length}件）`, `（${list.length}条）`);
   if (!list.length) {
