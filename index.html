@@ -62,6 +62,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 #sumView .grid > * { min-width: 0 }
 .filters { display: flex; flex-wrap: wrap; gap: 10px }
 .filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; flex: 1 1 160px; min-width: 0 }
+#filterBtn { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center }
+#filterBtn svg { width: 20px; height: 20px; fill: currentColor }
+#filterBtn.on { background: #9acd32; border-color: #7aa61f; color: #1c2a05 }
+#logCond { margin: 0 0 8px }
 .sumhead { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 10px }
 .sumhead .label { margin: 0 }
 table.sum td.n, table.sum th.n { text-align: right; font-family: var(--font-mono); font-size: 12px }
@@ -187,10 +191,12 @@ html { touch-action: manipulation }
       <p class="label" style="margin:0"><span data-zh="记录列表">記録一覧</span> <span id="count"></span></p>
       <div class="row">
         <button class="btn primary" id="copy" data-zh="导出">エクスポート</button>
-        <button class="btn sm" id="import" data-zh="导入">取込</button>
+        <button class="btn" id="import" data-zh="导入">取込</button>
         <button class="btn danger ghost" id="clearAll" data-zh="全部删除">全削除</button>
+        <button class="btn" id="filterBtn" aria-label="フィルター" title="フィルター"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg></button>
       </div>
     </div>
+    <p class="note" id="logCond" hidden></p>
     <div class="tablebox"><table>
       <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="详细">詳細</th><th data-zh="道路">道路</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
@@ -436,11 +442,45 @@ $("done").addEventListener("click", finish);
 $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast(tr("取り消しました", "已取消")) });
 
 /* ---- table ---- */
+// list filters (date / car / category), set in a popup; 全削除 deletes only what they match
+const logF = { d: "", c: "", k: "" };
+const logFiltered = () => records.filter(r => (!logF.d || fmtDate(r.t) === logF.d) && (!logF.c || (r.car || NOCAR) === logF.c) && (!logF.k || r.cat === logF.k));
+const logFiltering = () => !!(logF.d || logF.c || logF.k);
+const logCond = () => [logF.d, logF.c && noneLabel(logF.c), logF.k && L(catOf(logF.k).name)].filter(Boolean).join(" / ");
+function filterModal() {
+  const KEYS = { d: [r => fmtDate(r.t), noneLabel], c: [r => r.car || NOCAR, noneLabel], k: [r => r.cat, id => L(catOf(id).name)] };
+  const ID = { d: "fDateL", c: "fCarL", k: "fCatL" };
+  // each dropdown offers only values found in the records that match the other two choices
+  const fill = (cur) => Object.entries(KEYS).forEach(([key, [get, label]]) => {
+    const pool = records.filter(r => Object.entries(cur).every(([k2, v]) => k2 === key || !v || KEYS[k2][0](r) === v));
+    let values = uniq(pool.map(get));
+    values = key === "d" ? values.sort().reverse() : key === "k" ? CATS.map(c => c.id).filter(id => values.includes(id)) : values.sort();
+    const v = values.includes(cur[key]) ? cur[key] : "";
+    $(ID[key]).innerHTML = `<option value="">${tr("すべて", "全部")}</option>` + values.map(x => `<option value="${esc(x)}"${x === v ? " selected" : ""}>${esc(label(x))}</option>`).join("");
+  });
+  const read = () => ({ d: $("fDateL").value, c: $("fCarL").value, k: $("fCatL").value });
+  $("modal").innerHTML = `<div class="box">
+    <b>${tr("フィルター", "筛选")}</b>
+    <label>${tr("日付", "日期")}<select id="fDateL"></select></label>
+    <label>${tr("車名", "车名")}<select id="fCarL"></select></label>
+    <label>${tr("大分類", "分类")}<select id="fCatL"></select></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="fClr">${tr("解除", "清除")}</button><button class="btn ghost" id="fNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="fOk">${tr("適用", "应用")}</button></div></div>`;
+  fill({ ...logF });
+  Object.values(ID).forEach(id => { $(id).onchange = () => fill(read()) });
+  $("modal").hidden = false;
+  $("fNo").onclick = closeModal;
+  $("fClr").onclick = () => { logF.d = logF.c = logF.k = ""; closeModal(); renderTable() };
+  $("fOk").onclick = () => { Object.assign(logF, read()); closeModal(); renderTable() };
+}
 function renderTable() {
   renderSummary();
-  $("count").textContent = records.length ? tr(`（${records.length}件）`, `（${records.length}条）`) : "";
+  const list = logFiltered(), on = logFiltering();
+  $("filterBtn").classList.toggle("on", on);
+  $("logCond").hidden = !on; $("logCond").textContent = on ? tr(`フィルター：${logCond()}`, `筛选：${logCond()}`) : "";
+  $("count").textContent = !records.length ? "" : on ? tr(`（${list.length} / ${records.length}件）`, `（${list.length} / ${records.length}条）`) : tr(`（${records.length}件）`, `（${records.length}条）`);
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
-  $("tbody").innerHTML = records.map((r, i) => {
+  if (!list.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("絞り込みに一致する記録がありません。", "没有符合筛选条件的记录。")}</td></tr>`; return }
+  $("tbody").innerHTML = list.map(r => [r, records.indexOf(r)]).map(([r, i]) => {
     const c = catOf(r.cat), pending = !r.sub || (!c.noScene && (!r.road || !r.scene));
     const map = r.lat != null ? mapLinks(r) : "—";
     return `<tr class="${pending ? "pending" : ""}" data-id="${r.id}">
@@ -488,9 +528,16 @@ function editModal(id) {
   };
 }
 $("clearAll").addEventListener("click", () => {
-  if (!records.length) return;
-  confirmModal(tr(`全${records.length}件を削除しますか？（元に戻せません）`, `要删除全部${records.length}条记录吗？（无法恢复）`), () => { records = []; save(); renderTable() });
+  if (!logFiltering()) {
+    if (!records.length) return;
+    confirmModal(tr(`全${records.length}件を削除しますか？（元に戻せません）`, `要删除全部${records.length}条记录吗？（无法恢复）`), () => { records = []; save(); renderTable() });
+    return;
+  }
+  const del = new Set(logFiltered()); if (!del.size) return;
+  confirmModal(tr(`絞り込み中の${del.size}件（全${records.length}件中）を削除しますか？（元に戻せません）`, `要删除筛选中的${del.size}条记录（共${records.length}条）吗？（无法恢复）`),
+    () => { records = records.filter(r => !del.has(r)); logF.d = logF.c = logF.k = ""; save(); renderTable() }); // nothing matches any more
 });
+$("filterBtn").addEventListener("click", () => { if (records.length || logFiltering()) filterModal() });
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
@@ -581,7 +628,7 @@ function drawMini() {
 
 /* ---- summary view ---- */
 // placeholder keys for empty values; shown through noneLabel()
-const NOCAR = "\u0000car", NOROAD = "\u0000road", NOSCENE = "\u0000scene";
+const NOCAR = "\uE000car", NOROAD = "\uE000road", NOSCENE = "\uE000scene"; // private-use char: survives as an <option> value (U+0000 does not)
 const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOROAD ? tr("（道路未選択）", "（未选道路）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
 // columns: per category a total plus one per subtype
 const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null }, ...c.subs.map(s => ({ cat: c.id, sub: s }))]);
