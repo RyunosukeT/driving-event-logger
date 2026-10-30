@@ -267,6 +267,7 @@ const FROM_ZH = Object.fromEntries(Object.entries(ZH).map(([ja, zh]) => [zh, ja]
 const KEY = "drive-event-logger-v1";
 const CAR_KEY = "drive-event-logger-car";
 const LANG_KEY = "drive-event-logger-lang";
+const LOGF_KEY = "drive-event-logger-log-filter";
 const $ = (id) => document.getElementById(id);
 
 let lang = "ja";
@@ -446,7 +447,9 @@ $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidd
 
 /* ---- table ---- */
 // list filters (date / car / category), set in a popup; 全削除 deletes only what they match
+// kept across reloads, updates and the PWA being reopened
 const logF = { d: "", c: "", k: "" };
+try { const v = JSON.parse(localStorage.getItem(LOGF_KEY) || "{}"); for (const k in logF) if (typeof v[k] === "string") logF[k] = v[k] } catch {}
 const logFiltered = () => records.filter(r => (!logF.d || fmtDate(r.t) === logF.d) && (!logF.c || (r.car || NOCAR) === logF.c) && (!logF.k || r.cat === logF.k));
 const logFiltering = () => !!(logF.d || logF.c || logF.k);
 const logCond = () => [logF.d, logF.c && noneLabel(logF.c), logF.k && L(catOf(logF.k).name)].filter(Boolean).join(" / ");
@@ -476,6 +479,7 @@ function filterModal() {
   $("fOk").onclick = () => { Object.assign(logF, read()); closeModal(); renderTable() };
 }
 function renderTable() {
+  try { localStorage.setItem(LOGF_KEY, JSON.stringify(logF)) } catch {}
   renderSummary();
   const list = logFiltered(), on = logFiltering();
   $("filterBtn").classList.toggle("on", on);
