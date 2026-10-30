@@ -439,6 +439,7 @@ $("scenes").addEventListener("click", (e) => { const b = e.target.closest(".opt"
 $("memo").addEventListener("input", () => { if (draft) draft.memo = $("memo").value });
 function finish() {
   if (!draft) return;
+  draft.car = $("car").value.trim(); // the car name as it stands at 確定, even if edited after the category tap
   records.push(draft); save(); draft = null;
   $("stepDetail").hidden = true; toast(tr("記録しました", "已记录")); renderTable();
 }
