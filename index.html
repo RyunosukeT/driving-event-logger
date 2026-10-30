@@ -1179,15 +1179,15 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   // dev=0: the position in the link is already GCJ-02
   location.href = `iosamap://viewMap?sourceApplication=drivelogger&poiname=${encodeURIComponent(u.searchParams.get("name") || "")}&lat=${lat}&lon=${lon}&dev=0`;
-  // the app coming up (or iOS asking to open it) takes the page out of focus; if nothing did, the app is missing
-  let left = false;
-  const away = () => { left = true };
-  addEventListener("blur", away, { once: true });
-  addEventListener("pagehide", away, { once: true });
-  document.addEventListener("visibilitychange", away, { once: true });
+  // If the app has not come up after 2 seconds it counts as missing and the next tap opens the web page.
+  // Before that, iOS may ask whether to open the app, or say the address is invalid when the app is not
+  // installed; if the app does come up later (the question was answered slowly), it counts as present again.
+  let gone = false;
+  const away = () => { if (document.hidden) { gone = true; amapAppMissing = false } };
+  document.addEventListener("visibilitychange", away);
+  setTimeout(() => document.removeEventListener("visibilitychange", away), 30000);
   setTimeout(() => {
-    removeEventListener("blur", away); removeEventListener("pagehide", away); document.removeEventListener("visibilitychange", away);
-    if (left || document.hidden) return;
+    if (gone || document.hidden) return;
     amapAppMissing = true;
     toast(tr("高徳地図アプリを開けませんでした。もう一度押すとWebで開きます", "无法打开高德地图App，再按一次将在网页中打开"));
   }, 2000);
