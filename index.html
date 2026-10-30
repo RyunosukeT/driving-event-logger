@@ -448,17 +448,29 @@ const logFiltered = () => records.filter(r => (!logF.d || fmtDate(r.t) === logF.
 const logFiltering = () => !!(logF.d || logF.c || logF.k);
 const logCond = () => [logF.d, logF.c && noneLabel(logF.c), logF.k && L(catOf(logF.k).name)].filter(Boolean).join(" / ");
 function filterModal() {
-  const opt = (values, cur, label = noneLabel) => `<option value="">${tr("すべて", "全部")}</option>` + values.map(v => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(label(v))}</option>`).join("");
+  const KEYS = { d: [r => fmtDate(r.t), noneLabel], c: [r => r.car || NOCAR, noneLabel], k: [r => r.cat, id => L(catOf(id).name)] };
+  const ID = { d: "fDateL", c: "fCarL", k: "fCatL" };
+  // each dropdown offers only values found in the records that match the other two choices
+  const fill = (cur) => Object.entries(KEYS).forEach(([key, [get, label]]) => {
+    const pool = records.filter(r => Object.entries(cur).every(([k2, v]) => k2 === key || !v || KEYS[k2][0](r) === v));
+    let values = uniq(pool.map(get));
+    values = key === "d" ? values.sort().reverse() : key === "k" ? CATS.map(c => c.id).filter(id => values.includes(id)) : values.sort();
+    const v = values.includes(cur[key]) ? cur[key] : "";
+    $(ID[key]).innerHTML = `<option value="">${tr("すべて", "全部")}</option>` + values.map(x => `<option value="${esc(x)}"${x === v ? " selected" : ""}>${esc(label(x))}</option>`).join("");
+  });
+  const read = () => ({ d: $("fDateL").value, c: $("fCarL").value, k: $("fCatL").value });
   $("modal").innerHTML = `<div class="box">
     <b>${tr("フィルター", "筛选")}</b>
-    <label>${tr("日付", "日期")}<select id="fDateL">${opt(uniq(records.map(r => fmtDate(r.t))).sort().reverse(), logF.d)}</select></label>
-    <label>${tr("車名", "车名")}<select id="fCarL">${opt(uniq(records.map(r => r.car || NOCAR)).sort(), logF.c)}</select></label>
-    <label>${tr("大分類", "分类")}<select id="fCatL">${opt(CATS.filter(c => records.some(r => r.cat === c.id)).map(c => c.id), logF.k, id => L(catOf(id).name))}</select></label>
+    <label>${tr("日付", "日期")}<select id="fDateL"></select></label>
+    <label>${tr("車名", "车名")}<select id="fCarL"></select></label>
+    <label>${tr("大分類", "分类")}<select id="fCatL"></select></label>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="fClr">${tr("解除", "清除")}</button><button class="btn ghost" id="fNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="fOk">${tr("適用", "应用")}</button></div></div>`;
+  fill({ ...logF });
+  Object.values(ID).forEach(id => { $(id).onchange = () => fill(read()) });
   $("modal").hidden = false;
   $("fNo").onclick = closeModal;
   $("fClr").onclick = () => { logF.d = logF.c = logF.k = ""; closeModal(); renderTable() };
-  $("fOk").onclick = () => { logF.d = $("fDateL").value; logF.c = $("fCarL").value; logF.k = $("fCatL").value; closeModal(); renderTable() };
+  $("fOk").onclick = () => { Object.assign(logF, read()); closeModal(); renderTable() };
 }
 function renderTable() {
   renderSummary();
