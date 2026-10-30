@@ -878,11 +878,36 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = fals
 // back online: reload the tiles that failed while offline
 addEventListener("online", () => { mapImgs.forEach(img => img.remove()); mapImgs.clear(); if (map.pts.length) drawMap() });
 addEventListener("offline", () => { if (map.pts.length) drawMap() });
-// Amap links need a connection
+// Amap links need a connection. On iPhone they open the Amap app directly: the web page would open in an
+// overlay inside the installed app, where Amap's own close button leaves a blank page, and that page does not
+// hand over to the app by itself. If the app does not come up (not installed), later taps open the web page.
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let amapAppMissing = false;
 document.addEventListener("click", (e) => {
-  if (navigator.onLine || !e.target.closest('a[href^="https://uri.amap.com/"]')) return;
+  const a = e.target.closest('a[href^="https://uri.amap.com/"]'); if (!a) return;
+  if (!navigator.onLine) {
+    e.preventDefault();
+    toast(tr("オフラインのため高徳地図を開けません", "离线中，无法打开高德地图"));
+    return;
+  }
+  if (!isIOS || amapAppMissing) return;
+  const u = new URL(a.href), [lon, lat] = (u.searchParams.get("position") || "").split(",");
+  if (!lat || !lon) return;
   e.preventDefault();
-  toast(tr("オフラインのため高徳地図を開けません", "离线中，无法打开高德地图"));
+  // dev=0: the position in the link is already GCJ-02
+  location.href = `iosamap://viewMap?sourceApplication=drivelogger&poiname=${encodeURIComponent(u.searchParams.get("name") || "")}&lat=${lat}&lon=${lon}&dev=0`;
+  // If the app has not come up after 2 seconds it counts as missing and the next tap opens the web page.
+  // Before that, iOS may ask whether to open the app, or say the address is invalid when the app is not
+  // installed; if the app does come up later (the question was answered slowly), it counts as present again.
+  let gone = false;
+  const away = () => { if (document.hidden) { gone = true; amapAppMissing = false } };
+  document.addEventListener("visibilitychange", away);
+  setTimeout(() => document.removeEventListener("visibilitychange", away), 30000);
+  setTimeout(() => {
+    if (gone || document.hidden) return;
+    amapAppMissing = true;
+    toast(tr("高徳地図アプリを開けませんでした。もう一度押すとWebで開きます", "无法打开高德地图App，再按一次将在网页中打开"));
+  }, 2000);
 });
 // ask the browser not to clear the records when storage runs low
 try { navigator.storage?.persist?.().catch(() => {}) } catch {}
