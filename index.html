@@ -291,7 +291,9 @@ function amapUrl(r) {
   // Amap cuts long pin names short, so the memo comes right after the category and the date/time is kept short
   const d = new Date(r.t), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const name = encodeURIComponent([`${L(catOf(r.cat).name)} ${L(r.sub)}`.trim(), r.memo, r.car, when].filter(Boolean).join("｜").replace(/\s+/g, " "));
-  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
+  // callnative=1 opens the Amap app when it is installed: in the installed PWA the web page opens in an overlay,
+  // where Amap's own in-page close button leaves a blank page with no way back to the app
+  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=1&src=drivelogger`;
 }
 const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("地図", "地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
