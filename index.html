@@ -628,7 +628,7 @@ function drawMini() {
 
 /* ---- summary view ---- */
 // placeholder keys for empty values; shown through noneLabel()
-const NOCAR = "\u0000car", NOROAD = "\u0000road", NOSCENE = "\u0000scene";
+const NOCAR = "\uE000car", NOROAD = "\uE000road", NOSCENE = "\uE000scene"; // private-use char: survives as an <option> value (U+0000 does not)
 const noneLabel = (v) => v === NOCAR ? tr("（車名なし）", "（无车名）") : v === NOROAD ? tr("（道路未選択）", "（未选道路）") : v === NOSCENE ? tr("（シーン未選択）", "（未选场景）") : L(v);
 // columns: per category a total plus one per subtype
 const COLS = CATS.flatMap(c => [{ cat: c.id, sub: null }, ...c.subs.map(s => ({ cat: c.id, sub: s }))]);
