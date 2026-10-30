@@ -329,9 +329,7 @@ function amapUrl(r) {
   // Amap cuts long pin names short, so the memo comes right after the category and the date/time is kept short
   const d = new Date(r.t), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const name = encodeURIComponent([`${L(catOf(r.cat).name)} ${L(r.sub)}`.trim(), r.memo, r.car, when].filter(Boolean).join("｜").replace(/\s+/g, " "));
-  // callnative=1 opens the Amap app when it is installed: in the installed PWA the web page opens in an overlay,
-  // where Amap's own in-page close button leaves a blank page with no way back to the app
-  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=1&src=drivelogger`;
+  return `https://uri.amap.com/marker?position=${g.lon.toFixed(6)},${g.lat.toFixed(6)}&name=${name}&coordinate=gaode&callnative=0&src=drivelogger`;
 }
 const mapLinks = (r) => `<a href="${esc(amapUrl(r))}" target="_blank" rel="noopener">${tr("高徳地図", "高德地图")}</a>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -1163,11 +1161,36 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = fals
 // back online: reload the tiles that failed while offline
 addEventListener("online", () => { mapImgs.forEach(img => img.remove()); mapImgs.clear(); if (map.pts.length) drawMap() });
 addEventListener("offline", () => { if (map.pts.length) drawMap() });
-// Amap links need a connection
+// Amap links need a connection. On iPhone they open the Amap app directly: the web page would open in an
+// overlay inside the installed app, where Amap's own close button leaves a blank page, and that page does not
+// hand over to the app by itself. If the app does not come up (not installed), later taps open the web page.
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let amapAppMissing = false;
 document.addEventListener("click", (e) => {
-  if (navigator.onLine || !e.target.closest('a[href^="https://uri.amap.com/"]')) return;
+  const a = e.target.closest('a[href^="https://uri.amap.com/"]'); if (!a) return;
+  if (!navigator.onLine) {
+    e.preventDefault();
+    toast(tr("オフラインのため高徳地図を開けません", "离线中，无法打开高德地图"));
+    return;
+  }
+  if (!isIOS || amapAppMissing) return;
+  const u = new URL(a.href), [lon, lat] = (u.searchParams.get("position") || "").split(",");
+  if (!lat || !lon) return;
   e.preventDefault();
-  toast(tr("オフラインのため高徳地図を開けません", "离线中，无法打开高德地图"));
+  // dev=0: the position in the link is already GCJ-02
+  location.href = `iosamap://viewMap?sourceApplication=drivelogger&poiname=${encodeURIComponent(u.searchParams.get("name") || "")}&lat=${lat}&lon=${lon}&dev=0`;
+  // the app coming up (or iOS asking to open it) takes the page out of focus; if nothing did, the app is missing
+  let left = false;
+  const away = () => { left = true };
+  addEventListener("blur", away, { once: true });
+  addEventListener("pagehide", away, { once: true });
+  document.addEventListener("visibilitychange", away, { once: true });
+  setTimeout(() => {
+    removeEventListener("blur", away); removeEventListener("pagehide", away); document.removeEventListener("visibilitychange", away);
+    if (left || document.hidden) return;
+    amapAppMissing = true;
+    toast(tr("高徳地図アプリを開けませんでした。もう一度押すとWebで開きます", "无法打开高德地图App，再按一次将在网页中打开"));
+  }, 2000);
 });
 // ask the browser not to clear the records when storage runs low
 try { navigator.storage?.persist?.().catch(() => {}) } catch {}
