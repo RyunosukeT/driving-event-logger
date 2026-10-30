@@ -62,8 +62,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 #sumView .grid > * { min-width: 0 }
 .filters { display: flex; flex-wrap: wrap; gap: 10px }
 .filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; flex: 1 1 160px; min-width: 0 }
-#logFilters label { flex-basis: 110px }
-#lReset { align-self: flex-end }
+#filterBtn { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center }
+#filterBtn svg { width: 20px; height: 20px; fill: currentColor }
+#filterBtn.on { background: #9acd32; border-color: #7aa61f; color: #1c2a05 }
+#logCond { margin: 0 0 8px }
 .sumhead { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 10px }
 .sumhead .label { margin: 0 }
 table.sum td.n, table.sum th.n { text-align: right; font-family: var(--font-mono); font-size: 12px }
@@ -191,14 +193,10 @@ html { touch-action: manipulation }
         <button class="btn primary" id="copy" data-zh="导出">エクスポート</button>
         <button class="btn sm" id="import" data-zh="导入">取込</button>
         <button class="btn danger ghost" id="clearAll" data-zh="全部删除">全削除</button>
+        <button class="btn" id="filterBtn" aria-label="フィルター" title="フィルター"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg></button>
       </div>
     </div>
-    <div class="filters" id="logFilters" style="margin-bottom:8px">
-      <label><span data-zh="日期">日付</span><select id="lDate"></select></label>
-      <label><span data-zh="车名">車名</span><select id="lCar"></select></label>
-      <label><span data-zh="分类">大分類</span><select id="lCat"></select></label>
-      <button class="btn sm ghost" id="lReset" hidden data-zh="解除筛选">絞り込み解除</button>
-    </div>
+    <p class="note" id="logCond" hidden></p>
     <div class="tablebox"><table>
       <thead><tr><th>No</th><th data-zh="日期">日付</th><th data-zh="时间">時刻</th><th data-zh="车名">車名</th><th data-zh="分类">分類</th><th data-zh="详细">詳細</th><th data-zh="道路">道路</th><th data-zh="场景">シーン</th><th data-zh="地图">地図</th><th data-zh="备注">メモ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
@@ -444,26 +442,30 @@ $("done").addEventListener("click", finish);
 $("cancel").addEventListener("click", () => { draft = null; $("stepDetail").hidden = true; toast(tr("取り消しました", "已取消")) });
 
 /* ---- table ---- */
-// list filters (date / car / category); 全削除 deletes only what they match
-function logFiltered() {
-  const d = $("lDate").value, c = $("lCar").value, k = $("lCat").value;
-  return records.filter(r => (!d || fmtDate(r.t) === d) && (!c || (r.car || NOCAR) === c) && (!k || r.cat === k));
-}
-const logFiltering = () => !!($("lDate").value || $("lCar").value || $("lCat").value);
-function renderLogFilters() {
-  setOptions($("lDate"), uniq(records.map(r => fmtDate(r.t))).sort().reverse(), tr("すべて", "全部"));
-  setOptions($("lCar"), uniq(records.map(r => r.car || NOCAR)).sort(), tr("すべて", "全部"));
-  const sel = $("lCat"), prev = sel.value, cats = CATS.filter(c => records.some(r => r.cat === c.id));
-  sel.innerHTML = `<option value="">${tr("すべて", "全部")}</option>` + cats.map(c => `<option value="${c.id}">${esc(L(c.name))}</option>`).join("");
-  sel.value = cats.some(c => c.id === prev) ? prev : "";
-  $("logFilters").hidden = !records.length;
-  $("lReset").hidden = !logFiltering();
+// list filters (date / car / category), set in a popup; 全削除 deletes only what they match
+const logF = { d: "", c: "", k: "" };
+const logFiltered = () => records.filter(r => (!logF.d || fmtDate(r.t) === logF.d) && (!logF.c || (r.car || NOCAR) === logF.c) && (!logF.k || r.cat === logF.k));
+const logFiltering = () => !!(logF.d || logF.c || logF.k);
+const logCond = () => [logF.d, logF.c && noneLabel(logF.c), logF.k && L(catOf(logF.k).name)].filter(Boolean).join(" / ");
+function filterModal() {
+  const opt = (values, cur, label = noneLabel) => `<option value="">${tr("すべて", "全部")}</option>` + values.map(v => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(label(v))}</option>`).join("");
+  $("modal").innerHTML = `<div class="box">
+    <b>${tr("フィルター", "筛选")}</b>
+    <label>${tr("日付", "日期")}<select id="fDateL">${opt(uniq(records.map(r => fmtDate(r.t))).sort().reverse(), logF.d)}</select></label>
+    <label>${tr("車名", "车名")}<select id="fCarL">${opt(uniq(records.map(r => r.car || NOCAR)).sort(), logF.c)}</select></label>
+    <label>${tr("大分類", "分类")}<select id="fCatL">${opt(CATS.filter(c => records.some(r => r.cat === c.id)).map(c => c.id), logF.k, id => L(catOf(id).name))}</select></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="fClr">${tr("解除", "清除")}</button><button class="btn ghost" id="fNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="fOk">${tr("適用", "应用")}</button></div></div>`;
+  $("modal").hidden = false;
+  $("fNo").onclick = closeModal;
+  $("fClr").onclick = () => { logF.d = logF.c = logF.k = ""; closeModal(); renderTable() };
+  $("fOk").onclick = () => { logF.d = $("fDateL").value; logF.c = $("fCarL").value; logF.k = $("fCatL").value; closeModal(); renderTable() };
 }
 function renderTable() {
-  renderSummary(); renderLogFilters();
+  renderSummary();
   const list = logFiltered(), on = logFiltering();
+  $("filterBtn").classList.toggle("on", on);
+  $("logCond").hidden = !on; $("logCond").textContent = on ? tr(`フィルター：${logCond()}`, `筛选：${logCond()}`) : "";
   $("count").textContent = !records.length ? "" : on ? tr(`（${list.length} / ${records.length}件）`, `（${list.length} / ${records.length}条）`) : tr(`（${records.length}件）`, `（${records.length}条）`);
-  $("clearAll").textContent = on ? tr("表示中を削除", "删除显示的记录") : tr("全削除", "全部删除");
   if (!records.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("まだ記録がありません。上の分類ボタンを押すと、その時刻と位置で1件記録されます。", "还没有记录。按上方的分类按钮，即以当时的时间和位置记录一条。")}</td></tr>`; return }
   if (!list.length) { $("tbody").innerHTML = `<tr><td colspan="11" class="empty">${tr("絞り込みに一致する記録がありません。", "没有符合筛选条件的记录。")}</td></tr>`; return }
   $("tbody").innerHTML = list.map(r => [r, records.indexOf(r)]).map(([r, i]) => {
@@ -520,12 +522,11 @@ $("clearAll").addEventListener("click", () => {
     return;
   }
   const del = new Set(logFiltered()); if (!del.size) return;
-  const cond = [$("lDate"), $("lCar"), $("lCat")].filter(sel => sel.value).map(sel => sel.options[sel.selectedIndex].text).join(" / ");
+  const cond = logCond();
   confirmModal(tr(`絞り込み中（${cond}）の${del.size}件を削除しますか？（全${records.length}件中・元に戻せません）`, `要删除筛选中（${cond}）的${del.size}条记录吗？（共${records.length}条・无法恢复）`),
-    () => { records = records.filter(r => !del.has(r)); save(); renderTable() });
+    () => { records = records.filter(r => !del.has(r)); logF.d = logF.c = logF.k = ""; save(); renderTable() }); // nothing matches any more
 });
-["lDate", "lCar", "lCat"].forEach(id => $(id).addEventListener("change", renderTable));
-$("lReset").addEventListener("click", () => { $("lDate").value = $("lCar").value = $("lCat").value = ""; renderTable() });
+$("filterBtn").addEventListener("click", () => { if (records.length || logFiltering()) filterModal() });
 
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["詳細", "详细"], ["道路", "道路"], ["シーン", "场景"],
