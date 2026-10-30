@@ -91,6 +91,9 @@ table.sum .lead.end { box-shadow: inset -1px 0 var(--line) }
 .map .offline { position: absolute; left: 0; right: 56px; top: 0; border-bottom-right-radius: 6px; z-index: 3; font-size: 12px; padding: 4px 8px; text-align: center; background: color-mix(in srgb, var(--warn) 88%, transparent); color: #fff; font-weight: 600 }
 .map .credit { position: absolute; right: 0; bottom: 0; z-index: 3; font-size: 10px; padding: 1px 6px; background: rgba(255,255,255,.75); color: #333 }
 .map.mini { height: 240px }
+.elabel { min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--muted); font-weight: 600 }
+.elabel .btn { margin-left: auto }
+.map.mini .pin::after { content: ""; position: absolute; inset: -12px; border-radius: 50% }
 .map .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 16px; color: var(--muted); background: var(--panel); z-index: 4 }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted) }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px }
@@ -518,12 +521,27 @@ function editModal(id) {
     <label>${tr("道路", "道路")}<select id="eRoad">${opts(ROADS, r.road)}</select></label>
     <label>${tr("シーン", "场景")}<select id="eScene">${opts(SCENES, r.scene)}</select></label>
     <label>${tr("メモ", "备注")}<input type="text" id="eMemo" value="${esc(r.memo)}"></label>
+    <div class="elabel"><span>${tr("位置", "位置")}</span><button type="button" class="btn sm ghost" id="ePosReset" hidden>${tr("元の位置に戻す", "恢复原位置")}</button></div>
+    <div class="map mini" id="eMap"></div>
+    <p class="note" id="ePosNote" style="margin:-6px 0 0"></p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="eNo">${tr("閉じる", "关闭")}</button><button class="btn primary" id="eOk">${tr("保存", "保存")}</button></div></div>`;
   $("modal").hidden = false;
-  $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, "") };
+  // position: drag the pin or tap the map; saved only with 保存
+  const orig = r.lat != null && r.lon != null ? project(toGcj(r)) : null;
+  let pos = orig;
+  const posNote = () => {
+    $("ePosNote").textContent = pos !== orig ? tr("位置を変更しました（保存で反映）", "位置已修改（保存后生效）")
+      : orig ? tr("ピンをドラッグするか地図をタップして修正", "拖动图钉或点击地图修改") : tr("位置なし：地図をタップして指定", "无位置：点击地图指定");
+    $("ePosReset").hidden = pos === orig;
+  };
+  const showMap = () => miniMap($("eMap"), $("eCat").value, pos, (p) => { pos = p; posNote() }, pos ?? orig ?? fallbackView());
+  showMap(); posNote();
+  $("ePosReset").onclick = () => { pos = orig; showMap(); posNote() };
+  $("eCat").onchange = () => { $("eSub").innerHTML = opts(catOf($("eCat").value).subs, ""); $("eMap").querySelector(".pin").dataset.c = $("eCat").value };
   $("eNo").onclick = closeModal;
   $("eOk").onclick = () => {
     r.car = $("eCar").value.trim(); r.cat = $("eCat").value; r.sub = $("eSub").value; r.road = $("eRoad").value; r.scene = $("eScene").value; r.memo = $("eMemo").value;
+    if (pos !== orig) { const w = gcjToWgs(...unproject(pos)); r.lat = +w.lat.toFixed(7); r.lon = +w.lon.toFixed(7) }
     save(); renderTable(); closeModal(); toast(tr("保存しました", "已保存"));
   };
 }
@@ -576,7 +594,6 @@ $("copy").addEventListener("click", () => {
 });
 
 /* ---- record detail popup: the record and a small Amap map around where it was taken ---- */
-const mini = { r: null, z: 16, cx: 0, cy: 0, imgs: new Map() };
 function detailModal(id) {
   const r = records.find(x => x.id === id); if (!r) return;
   const c = catOf(r.cat), hasPos = r.lat != null && r.lon != null;
@@ -591,38 +608,84 @@ function detailModal(id) {
   $("dNo").onclick = closeModal;
   $("dEdit").onclick = () => editModal(id);
   $("dDel").onclick = () => confirmModal(tr("この記録を削除しますか？", "要删除这条记录吗？"), () => { records = records.filter(x => x.id !== id); save(); renderTable() });
-  const el = $("dMap");
+  if (!hasPos) { $("dMap").innerHTML = `<div class="msg">${tr("この記録には位置がありません", "这条记录没有位置")}</div>`; return }
+  miniMap($("dMap"), r.cat, project(toGcj(r)));
+}
+
+/* ---- small map in a popup: one pin; with onMove the pin can be dragged, or put where the map is tapped ---- */
+// p: pin in zoom-0 pixels (null = no pin yet); home: where 戻す returns the view to
+const mini = { el: null, p: null, z: 16, cx: 0, cy: 0, imgs: new Map() };
+function miniMap(el, cat, p, onMove, home = p) {
   mini.imgs.clear();
-  if (!hasPos) { el.innerHTML = `<div class="msg">${tr("この記録には位置がありません", "这条记录没有位置")}</div>`; return }
-  const p = project(toGcj(r));
-  Object.assign(mini, { r, z: 16, cx: p.x, cy: p.y });
-  el.innerHTML = `<div class="tiles"></div><span class="pin sel" data-c="${r.cat}"></span>
+  Object.assign(mini, { el, p, z: home.z ?? 16, cx: home.x, cy: home.y });
+  el.innerHTML = `<div class="tiles"></div><span class="pin sel" data-c="${cat}"${p ? "" : " hidden"}></span>
     <div class="zoom"><button type="button" data-z="1" aria-label="${tr("拡大", "放大")}">＋</button><button type="button" data-z="-1" aria-label="${tr("縮小", "缩小")}">−</button><button type="button" class="fit" data-z="0">${tr("戻す", "复位")}</button></div>
     <div class="offline" hidden>${tr("オフライン：表示済みの範囲のみ地図が出ます", "离线：仅显示加载过的地图范围")}</div>
     <div class="credit">© 高德地图</div>`;
-  // one finger drags, the buttons (or the wheel) zoom around the centre
-  let drag = null, wheelAcc = 0;
-  el.onpointerdown = (e) => { if (drag || e.target.closest(".zoom")) return; el.setPointerCapture(e.pointerId); drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.classList.add("drag") };
-  el.onpointermove = (e) => {
-    if (drag?.id !== e.pointerId) return;
-    const n = 2 ** mini.z;
-    mini.cx -= (e.clientX - drag.x) / n; mini.cy = Math.max(0, Math.min(TILE, mini.cy - (e.clientY - drag.y) / n));
-    drag.x = e.clientX; drag.y = e.clientY; drawMini();
+  // one finger drags the map (or the pin, when it can be moved), two fingers pinch (a whole zoom level per step),
+  // the buttons (or the wheel) zoom around the centre
+  const ptrs = new Map();
+  let g = null, wheelAcc = 0;
+  const at = (e) => { const rect = el.getBoundingClientRect(), n = 2 ** mini.z; return { x: mini.cx + (e.clientX - rect.left - rect.width / 2) / n, y: mini.cy + (e.clientY - rect.top - rect.height / 2) / n } };
+  const pinchDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) };
+  el.onpointerdown = (e) => {
+    if (ptrs.size >= 2 || e.target.closest(".zoom")) return;
+    el.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1) g = { moved: 0, pin: !!onMove && !!mini.p && !!e.target.closest(".pin"), pinMoved: false, pinch: false };
+    else { g.pinch = true; g.d = pinchDist() }
+    el.classList.add("drag");
   };
-  el.onpointerup = el.onpointercancel = (e) => { if (drag?.id === e.pointerId) { drag = null; el.classList.remove("drag") } };
+  el.onpointermove = (e) => {
+    const p = ptrs.get(e.pointerId); if (!p) return;
+    const n = 2 ** mini.z, dx = (e.clientX - p.x) / n, dy = (e.clientY - p.y) / n;
+    p.x = e.clientX; p.y = e.clientY;
+    if (g.pinch) {
+      if (ptrs.size < 2) return;
+      const d = pinchDist(), ratio = d / g.d;
+      if (ratio > 1.6 || ratio < 0.625) {
+        const rect = el.getBoundingClientRect(), [a, b] = [...ptrs.values()];
+        zoomMini(ratio > 1 ? 1 : -1, (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
+        g.d = d;
+      }
+      return;
+    }
+    g.moved += Math.abs(dx * n) + Math.abs(dy * n);
+    if (g.pin) { mini.p = { x: mini.p.x + dx, y: Math.max(0, Math.min(TILE, mini.p.y + dy)) }; g.pinMoved = true }
+    else { mini.cx -= dx; mini.cy = Math.max(0, Math.min(TILE, mini.cy - dy)) }
+    drawMini();
+  };
+  el.onpointerup = el.onpointercancel = (e) => {
+    if (!ptrs.delete(e.pointerId) || ptrs.size) return;
+    if (onMove) {
+      // a tap (not a drag or a pinch) puts the pin there
+      if (!g.pin && !g.pinch && e.type === "pointerup" && g.moved < 8) { mini.p = at(e); drawMini(); onMove(mini.p) }
+      else if (g.pinMoved) onMove(mini.p);
+    }
+    g = null; el.classList.remove("drag");
+  };
   el.onwheel = (e) => { e.preventDefault(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) < 60) return; zoomMini(wheelAcc < 0 ? 1 : -1); wheelAcc = 0 };
   el.onclick = (e) => {
     const b = e.target.closest(".zoom button"); if (!b) return;
-    if (b.dataset.z === "0") { Object.assign(mini, { z: 16, cx: p.x, cy: p.y }); drawMini() } else zoomMini(+b.dataset.z);
+    if (b.dataset.z === "0") { const c = mini.p ?? home; Object.assign(mini, { z: Math.max(mini.z, home.z ?? 16), cx: c.x, cy: c.y }); drawMini() } else zoomMini(+b.dataset.z);
   };
   drawMini();
 }
-function zoomMini(dz) { mini.z = Math.max(MINZ, Math.min(MAXZ, mini.z + dz)); drawMini() }
+// zoom by dz whole levels, keeping the point (px, py) inside the map where it is (default: the centre)
+function zoomMini(dz, px, py) {
+  const el = mini.el, z = Math.max(MINZ, Math.min(MAXZ, mini.z + dz));
+  if (z === mini.z) return;
+  const fx = px == null ? 0 : px - el.clientWidth / 2, fy = py == null ? 0 : py - el.clientHeight / 2, n0 = 2 ** mini.z, n1 = 2 ** z;
+  mini.cx += fx / n0 - fx / n1; mini.cy += fy / n0 - fy / n1; mini.z = z;
+  drawMini();
+}
 function drawMini() {
-  const el = $("dMap"); if (!el || !mini.r) return;
-  const w = el.clientWidth, h = el.clientHeight, n = 2 ** mini.z, ox = mini.cx * n - w / 2, oy = mini.cy * n - h / 2, p = project(toGcj(mini.r));
+  const el = mini.el; if (!el?.isConnected) return;
+  const w = el.clientWidth, h = el.clientHeight, n = 2 ** mini.z, ox = mini.cx * n - w / 2, oy = mini.cy * n - h / 2;
   placeTiles(el.querySelector(".tiles"), mini.imgs, mini.z, ox, oy, w, h);
-  Object.assign(el.querySelector(".pin").style, { left: (p.x * n - ox).toFixed(1) + "px", top: (p.y * n - oy).toFixed(1) + "px" });
+  const pin = el.querySelector(".pin");
+  pin.hidden = !mini.p;
+  if (mini.p) Object.assign(pin.style, { left: (mini.p.x * n - ox).toFixed(1) + "px", top: (mini.p.y * n - oy).toFixed(1) + "px" });
   el.querySelector(".offline").hidden = navigator.onLine;
 }
 
@@ -709,6 +772,13 @@ const toGcj = (r) => inChina(r.lat, r.lon) ? wgsToGcj(r.lat, r.lon) : { lat: r.l
 function project(p) {
   const s = Math.sin(Math.max(-85, Math.min(85, p.lat)) * Math.PI / 180);
   return { x: TILE * (p.lon + 180) / 360, y: TILE * (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) };
+}
+// zoom-0 pixel coordinates → [lat, lon]
+const unproject = (p) => [Math.atan(Math.sinh(Math.PI * (1 - 2 * p.y / TILE))) * 180 / Math.PI, p.x / TILE * 360 - 180];
+// view for a record without a position: the current GPS fix, else the latest record with a position, else all of China
+function fallbackView() {
+  const r = fix ? { lat: fix.coords.latitude, lon: fix.coords.longitude } : [...records].reverse().find(x => x.lat != null && x.lon != null);
+  return r ? { ...project(toGcj(r)), z: 15 } : { ...project({ lat: 35, lon: 105 }), z: 4 };
 }
 const map = { pts: [], z: 4, cx: TILE / 2, cy: TILE / 2, sel: null }; // cx, cy: centre in zoom-0 pixels
 const mapImgs = new Map();
