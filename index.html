@@ -534,8 +534,7 @@ $("clearAll").addEventListener("click", () => {
     return;
   }
   const del = new Set(logFiltered()); if (!del.size) return;
-  const cond = logCond();
-  confirmModal(tr(`絞り込み中（${cond}）の${del.size}件を削除しますか？（全${records.length}件中・元に戻せません）`, `要删除筛选中（${cond}）的${del.size}条记录吗？（共${records.length}条・无法恢复）`),
+  confirmModal(tr(`絞り込み中の${del.size}件（全${records.length}件中）を削除しますか？（元に戻せません）`, `要删除筛选中的${del.size}条记录（共${records.length}条）吗？（无法恢复）`),
     () => { records = records.filter(r => !del.has(r)); logF.d = logF.c = logF.k = ""; save(); renderTable() }); // nothing matches any more
 });
 $("filterBtn").addEventListener("click", () => { if (records.length || logFiltering()) filterModal() });
