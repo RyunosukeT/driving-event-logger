@@ -53,12 +53,13 @@ h1 b { color: var(--fg); font-weight: 700 }
 #car { display: block; width: 100%; margin-top: 10px; font-family: inherit; color: var(--fg); border: 0; background: var(--soft); border-radius: 12px; padding: 10px 14px; min-height: 42px; font-size: 14px }
 
 /* categories */
-#cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, .75fr); gap: 6px; margin-top: 10px }
-.cat { --c: var(--oth); position: relative; min-height: 84px; border-radius: 18px; padding: 12px 10px; text-align: left; display: flex; flex-direction: column; justify-content: space-between;
+#cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(64px, .75fr); gap: 6px; margin-top: 10px }
+.cat { --c: var(--oth); position: relative; min-height: 84px; border-radius: 18px; padding: 12px 8px; text-align: left; display: flex; flex-direction: column; justify-content: space-between;
   background: var(--card); box-shadow: var(--shadow); transition: transform .12s, background .15s, color .15s }
 .cat[data-c="safe"] { --c: var(--safe) } .cat[data-c="comf"] { --c: var(--comf) } .cat[data-c="eff"] { --c: var(--eff) } .cat[data-c="oth"] { --c: var(--oth) }
 .cat::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c) }
-.cat b { display: block; font-size: 15px; font-weight: 700; line-height: 1.25; word-break: keep-all } .cat[data-c="oth"] { padding: 12px 8px }
+.cat b { display: block; font-size: min(15px, 3.8vw); font-weight: 700; line-height: 1.25; white-space: nowrap }
+.cat b i { font-style: normal; margin: 0 -.22em } /* tighter middle dot so 安全・安心 stays on one line */
 .cat small { display: block; font-size: 10px; color: var(--muted); font-weight: 500; letter-spacing: .02em; white-space: nowrap; text-transform: uppercase; margin-top: 2px }
 .cat.on { background: var(--c); color: #fff } .cat.on::before { background: #fff } .cat.on small { color: rgb(255 255 255 / .8) }
 .cat:active { transform: scale(.97) }
@@ -152,7 +153,7 @@ h1 b { color: var(--fg); font-weight: 700 }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .note { font-size: 13px; color: var(--muted); margin: 0 }
 textarea#impText, textarea#fallback { width: 100%; height: 140px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--fg); background: var(--soft); border: 0; border-radius: 12px; padding: 10px }
-@media (max-width: 360px) { .cat { min-height: 76px; padding: 10px } .cat b { font-size: 15px } .clock { font-size: 17px } }
+@media (max-width: 360px) { .cat { min-height: 76px; padding: 10px 8px } .clock { font-size: 17px } }
 @media (prefers-reduced-motion: reduce) { .cat, #subs .opt { transition: none } .cat:active { transform: none } }
 /* iOS zooms into any focused field under 16px, so every field is at least 16px; no double-tap zoom either */
 input, textarea, select { font-size: 16px !important }
@@ -352,7 +353,7 @@ function applyFix(rec, p) { rec.lat = +p.coords.latitude.toFixed(7); rec.lon = +
 /* ---- step 1: category ---- */
 function renderCats() {
   $("cats").setAttribute("aria-label", tr("① イベント分類（押した時刻と位置を記録）", "① 事件分类（记录按下时的时间和位置）"));
-  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}"><span><b>${esc(L(c.name)).replace("・", "・<wbr>")}</b><small>${c.en}</small></span></button>`).join("");
+  $("cats").innerHTML = CATS.map(c => `<button class="cat" data-c="${c.id}" aria-label="${esc(L(c.name))}"><span><b>${esc(L(c.name)).replace("・", "<i>・</i>")}</b><small>${c.en}</small></span></button>`).join("");
 }
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
