@@ -207,7 +207,6 @@ html { touch-action: manipulation }
       <h2><span id="logTitle"></span><span id="count"></span></h2>
       <div class="tools">
         <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
-        <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
         <button class="btn sm ghost" id="archiveAll" data-zh="全部归档">全アーカイブ</button>
         <button class="btn sm ghost" id="delGroup" data-zh="删除" hidden>削除</button>
         <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
@@ -514,10 +513,6 @@ function editModal(id) {
     save(); renderTable(); closeModal(); toast(tr("保存しました", "已保存"));
   };
 }
-$("clearAll").addEventListener("click", () => {
-  if (!records.length) return;
-  confirmModal(tr(`全${records.length}件を削除しますか？（元に戻せません）`, `要删除全部${records.length}条记录吗？（无法恢复）`), () => { records = []; save(); renderTable() });
-});
 
 /* ---- archive: 全アーカイブ moves every current record into the archive, browsed by date and car ---- */
 const groupKey = (r) => `${fmtDate(r.t)}|${r.car || ""}`;
@@ -564,7 +559,7 @@ function renderArchBar() {
   if (view && !g) view = null; // that group was deleted
   $("archive").classList.toggle("on", !!view);
   $("logTitle").textContent = view ? tr("アーカイブ", "归档") : tr("記録", "记录");
-  for (const id of ["import", "clearAll", "archiveAll"]) $(id).hidden = !!view;
+  for (const id of ["import", "archiveAll"]) $(id).hidden = !!view;
   $("delGroup").hidden = !view;
   bar.hidden = !view; if (!view) { bar.innerHTML = ""; return }
   bar.innerHTML = `<span>${tr("アーカイブを表示中", "正在查看归档")}<b>${esc(g.date)} · ${esc(carLabel(g.car))}</b></span><button class="btn sm" id="arBack">${tr("戻る", "返回")}</button>`;
