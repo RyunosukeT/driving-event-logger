@@ -111,9 +111,9 @@ h1 b { color: var(--fg); font-weight: 700 }
 .group.sel { box-shadow: inset 0 0 0 2px var(--ink) }
 /* per-category Good / Bad counts under each archived date and car */
 .group .cats { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto auto; gap: 2px 14px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; font-variant-numeric: tabular-nums }
-.group .cats span { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 3.2em } .group .cats .nm { justify-content: flex-start }
+.group .cats span { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 2.4em } .group .cats .nm { justify-content: flex-start }
 .group .cats i { width: 8px; height: 8px; border-radius: 50%; flex: none }
-.group .cats .g { color: var(--good) } .group .cats .b { color: var(--bad-c) } .group .cats .z { color: var(--muted); opacity: .6 }
+.group .cats .hd { font-size: 12px } .group .cats .g { color: var(--good) } .group .cats .b { color: var(--bad-c) } .group .cats .z { color: var(--muted); opacity: .6 }
 .loghead h2 { font-size: 20px; font-weight: 700; margin: 0 auto 0 4px; letter-spacing: -.01em }
 .loghead #count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 8px }
 .list { display: grid; gap: 8px }
@@ -546,9 +546,9 @@ function archiveModal() {
       const good = g.list.filter(r => r.sub === RATES[0]).length, bad = g.list.filter(r => r.sub === RATES[1]).length;
       return `<button type="button" class="group${g.k === view ? " sel" : ""}" data-k="${esc(g.k)}"><b>${esc(g.date)}</b><span class="car">${esc(carLabel(g.car))}</span>
         <span class="n">${tr(`${g.list.length}件`, `${g.list.length}条`)}<br><span class="g">👍${good}</span> <span class="b">👎${bad}</span></span>
-        <span class="cats">${CATS.map(c => {
+        <span class="cats"><span class="nm"></span><span class="hd">👍</span><span class="hd">👎</span>${CATS.map(c => {
           const n = (v) => g.list.filter(r => r.cat === c.id && r.sub === v).length, cg = n(RATES[0]), cb = n(RATES[1]);
-          return `<span class="nm"><i style="background:var(--${c.id})"></i>${esc(L(c.name))}</span><span class="${cg ? "g" : "z"}">👍${cg}</span><span class="${cb ? "b" : "z"}">👎${cb}</span>`;
+          return `<span class="nm"><i style="background:var(--${c.id})"></i>${esc(L(c.name))}</span><span class="${cg ? "g" : "z"}">${cg}</span><span class="${cb ? "b" : "z"}">${cb}</span>`;
         }).join("")}</span></button>`;
     }).join("")}</div>` : `<p class="empty">${tr("アーカイブはまだありません。一覧の「全アーカイブ」で記録をここに移せます。", "还没有归档。可用列表中的「全部归档」把记录移到这里。")}</p>`}
     <div class="row" style="justify-content:flex-end">${view ? `<button class="btn" id="arCur">${tr("現在の記録に戻る", "返回当前记录")}</button>` : ""}<button class="btn ghost" id="arNo">${tr("閉じる", "关闭")}</button></div></div>`;
