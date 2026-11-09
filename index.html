@@ -49,6 +49,9 @@ h1 b { color: var(--fg); font-weight: 700 }
 .gps[data-s="ok"] .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent) }
 .gps[data-s="weak"] .dot { background: var(--warn) } .gps[data-s="none"] .dot { background: var(--bad) }
 .clock { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em }
+.iconbtn { width: 34px; height: 34px; border-radius: 50%; background: var(--soft); color: var(--muted); display: grid; place-items: center; flex: none }
+.iconbtn svg { width: 18px; height: 18px }
+.iconbtn.on { background: var(--ink); color: var(--ink-fg) }
 .langbtn { font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-radius: 99px; background: var(--soft); min-height: 30px }
 #car { display: block; width: 100%; margin-top: 10px; font-family: inherit; color: var(--fg); border: 0; background: var(--soft); border-radius: 12px; padding: 10px 14px; min-height: 42px; font-size: 14px }
 
@@ -94,7 +97,18 @@ h1 b { color: var(--fg); font-weight: 700 }
 .btn.sm { min-height: 34px; padding: 0 12px; font-size: 13px }
 
 /* log */
-.loghead { display: flex; align-items: center; gap: 4px; margin-bottom: 10px }
+.loghead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px }
+.loghead .tools { display: flex; gap: 2px; margin-left: auto }
+.loghead .tools .ghost { padding: 0 9px }
+.archbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 12px 10px 14px; border-radius: 14px; background: var(--ink); color: var(--ink-fg); font-size: 13px }
+.archbar span { flex: 1; min-width: 0; overflow-wrap: anywhere } .archbar b { display: block; font-size: 15px }
+.archbar .btn { background: var(--ink-fg); color: var(--ink); flex: none }
+.groups { display: grid; gap: 6px }
+.group { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--soft) }
+.group b { font-size: 15px; font-variant-numeric: tabular-nums } .group .car { font-size: 13px; color: var(--fg); overflow-wrap: anywhere }
+.group .n { grid-row: 1 / 3; grid-column: 2; font-size: 13px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums }
+.group .n .g { color: var(--good) } .group .n .b { color: var(--bad-c) }
+.group.sel { box-shadow: inset 0 0 0 2px var(--ink) }
 .loghead h2 { font-size: 20px; font-weight: 700; margin: 0 auto 0 4px; letter-spacing: -.01em }
 .loghead #count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 8px }
 .list { display: grid; gap: 8px }
@@ -167,6 +181,7 @@ html { touch-action: manipulation }
     <span class="gps" id="gps" data-s="wait"><span class="dot"></span><span id="gpsText" class="sr"></span></span>
     <span class="clock" id="clock">--:--:--</span>
     <button class="langbtn" id="lang" type="button" aria-label="言語切替 / 切换语言"></button>
+    <button class="iconbtn" id="archive" type="button" aria-label="アーカイブ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9"/><path d="M10 13h4"/></svg></button>
   </div>
   <input type="text" id="car" placeholder="車名" data-zh-ph="车名" autocomplete="off" aria-label="車名">
   <div id="cats"></div>
@@ -187,11 +202,16 @@ html { touch-action: manipulation }
   </section>
 
   <section id="logView">
+    <div class="archbar" id="archBar" hidden></div>
     <div class="loghead">
-      <h2><span data-zh="记录">記録</span><span id="count"></span></h2>
-      <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
-      <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
-      <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
+      <h2><span id="logTitle"></span><span id="count"></span></h2>
+      <div class="tools">
+        <button class="btn sm ghost" id="import" data-zh="导入">取込</button>
+        <button class="btn sm ghost" id="clearAll" data-zh="全部删除">全削除</button>
+        <button class="btn sm ghost" id="archiveAll" data-zh="全部归档">全アーカイブ</button>
+        <button class="btn sm ghost" id="delGroup" data-zh="删除" hidden>削除</button>
+        <button class="btn sm primary" id="copy" data-zh="导出">エクスポート</button>
+      </div>
     </div>
     <div class="list" id="tbody"></div>
   </section>
@@ -236,6 +256,8 @@ const FROM_ZH = Object.fromEntries(Object.entries(ZH).map(([ja, zh]) => [zh, ja]
 const KEY = "drive-event-logger-simple-v1";
 const CAR_KEY = "drive-event-logger-simple-car";
 const LANG_KEY = "drive-event-logger-simple-lang";
+// archived records (全アーカイブ), kept apart from the current ones and browsed by date and car
+const ARCH_KEY = "drive-event-logger-simple-archive-v1";
 const $ = (id) => document.getElementById(id);
 
 let lang = "ja";
@@ -244,12 +266,16 @@ const tr = (ja, zh) => lang === "zh" ? zh : ja;        // fixed UI text
 const L = (v) => lang === "zh" ? (ZH[v] ?? v) : v;      // stored category/rating/scene names
 
 let records = load();
+let archive = loadArchive();
+let view = null;      // key (date|car) of the archived group being shown instead of the current records
 let scenesOpen = false;
 let draft = null;     // record being filled in; joins records only on 記録を確定
 let fix = null;       // latest GeolocationPosition
 
 function load() { try { return JSON.parse(localStorage.getItem(KEY) || "[]") } catch { return [] } }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(records)) } catch { toast(tr("この端末では保存できません（プライベートモード等）", "此设备无法保存（无痕模式等）")) } }
+function loadArchive() { try { return JSON.parse(localStorage.getItem(ARCH_KEY) || "[]") } catch { return [] } }
+function saveArchive() { try { localStorage.setItem(ARCH_KEY, JSON.stringify(archive)); return true } catch { toast(tr("この端末では保存できません（プライベートモード等）", "此设备无法保存（无痕模式等）")); return false } }
 const pad = (n) => String(n).padStart(2, "0");
 const fmtDate = (t) => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}` };
 const fmtTime = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` };
@@ -309,6 +335,7 @@ function applyLang() {
   document.querySelectorAll("[data-zh]").forEach(el => { if (el.dataset.ja == null) el.dataset.ja = el.textContent; el.textContent = lang === "zh" ? el.dataset.zh : el.dataset.ja });
   document.querySelectorAll("[data-zh-ph]").forEach(el => { if (el.dataset.jaPh == null) el.dataset.jaPh = el.placeholder; el.placeholder = lang === "zh" ? el.dataset.zhPh : el.dataset.jaPh });
   $("lang").textContent = lang === "zh" ? "日本語" : "中文";
+  $("archive").setAttribute("aria-label", tr("アーカイブ", "归档"));
   renderCats(); renderGps(); renderTable();
   if (draft) openDetail();
 }
@@ -357,6 +384,7 @@ function renderCats() {
 }
 $("cats").addEventListener("click", (e) => {
   const b = e.target.closest(".cat"); if (!b) return;
+  if (view) showArchive(null); // recording always goes to the current records
   const t = Date.now();
   const rec = { id: t.toString(36) + Math.random().toString(36).slice(2, 6), t, cat: b.dataset.c, car: $("car").value.trim(), sub: "", scene: "", memo: "", lat: null, lon: null };
   if (fix && t - fix.timestamp < 15000) applyFix(rec, fix);
@@ -437,16 +465,20 @@ $("done").addEventListener("click", finish);
 $("cancel").addEventListener("click", () => { draft = null; openDetail(); toast(tr("取り消しました", "已取消")) });
 
 /* ---- table ---- */
+// the records on screen: the current ones, or one archived date and car
+const shown = () => view ? archive.filter(r => groupKey(r) === view) : records;
 function renderTable() {
-  $("count").textContent = records.length ? tr(`${records.length}件`, `${records.length}条`) : "";
-  renderMap(records);
-  if (!records.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。", "还没有记录。")}</p>`; return }
-  $("tbody").innerHTML = records.map((r, i) => {
+  renderArchBar();
+  const list = shown();
+  $("count").textContent = list.length ? tr(`${list.length}件`, `${list.length}条`) : "";
+  renderMap(list);
+  if (!list.length) { $("tbody").innerHTML = `<p class="empty">${tr("まだ記録がありません。", "还没有记录。")}</p>`; return }
+  $("tbody").innerHTML = list.map((r, i) => {
     const c = catOf(r.cat), sub = [L(r.scene), r.memo].filter(Boolean).map(esc).join(" · ");
     return `<div class="item${r.sub ? "" : " pending"}" data-c="${c.id}" data-id="${r.id}"><span class="bar"></span>
       <div class="main"><div class="l1"><b>${esc(L(c.name))}</b><span class="rate" data-v="${esc(r.sub)}">${esc(L(r.sub))}</span></div>
         <div class="l2"><time>${fmtTime(r.t)}</time> · No.${i + 1}${sub ? " · " + sub : ""}</div></div>
-      <div class="side">${r.lat != null ? mapLinks(r) : ""}<button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button></div></div>`;
+      <div class="side">${r.lat != null ? mapLinks(r) : ""}${view ? "" : `<button data-a="edit">${tr("編集", "编辑")}</button><button data-a="del">${tr("削除", "删除")}</button>`}</div></div>`;
   }).reverse().join("");
 }
 $("tbody").addEventListener("click", (e) => {
@@ -459,10 +491,10 @@ $("tbody").addEventListener("click", (e) => {
 /* ---- modals ---- */
 function closeModal() { $("modal").hidden = true; $("modal").innerHTML = "" }
 $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal() });
-function confirmModal(msg, ok) {
-  $("modal").innerHTML = `<div class="box"><b>${esc(msg)}</b><div class="row" style="justify-content:flex-end"><button class="btn ghost" id="mNo">${tr("やめる", "取消")}</button><button class="btn danger" id="mYes">${tr("削除する", "删除")}</button></div></div>`;
+function confirmModal(msg, ok, yes = tr("削除する", "删除"), done = tr("削除しました", "已删除"), note = "") {
+  $("modal").innerHTML = `<div class="box"><b>${esc(msg)}</b>${note ? `<p class="note">${esc(note)}</p>` : ""}<div class="row" style="justify-content:flex-end"><button class="btn ghost" id="mNo">${tr("やめる", "取消")}</button><button class="btn ${yes === tr("削除する", "删除") ? "danger" : "primary"}" id="mYes">${esc(yes)}</button></div></div>`;
   $("modal").hidden = false;
-  $("mNo").onclick = closeModal; $("mYes").onclick = () => { ok(); closeModal(); toast(tr("削除しました", "已删除")) };
+  $("mNo").onclick = closeModal; $("mYes").onclick = () => { if (ok() === false) return; closeModal(); toast(done) };
 }
 function editModal(id) {
   const r = records.find(x => x.id === id); if (!r) return;
@@ -487,6 +519,65 @@ $("clearAll").addEventListener("click", () => {
   confirmModal(tr(`全${records.length}件を削除しますか？（元に戻せません）`, `要删除全部${records.length}条记录吗？（无法恢复）`), () => { records = []; save(); renderTable() });
 });
 
+/* ---- archive: 全アーカイブ moves every current record into the archive, browsed by date and car ---- */
+const groupKey = (r) => `${fmtDate(r.t)}|${r.car || ""}`;
+function groups() {
+  const m = new Map();
+  for (const r of archive) { const k = groupKey(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r) }
+  return [...m].map(([k, list]) => ({ k, date: k.split("|")[0], car: k.slice(k.indexOf("|") + 1), list, t: Math.max(...list.map(r => r.t)) }))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.t - a.t);
+}
+const carLabel = (car) => car || tr("車名なし", "无车名");
+$("archiveAll").addEventListener("click", () => {
+  if (!records.length) { toast(tr("記録がありません", "没有记录")); return }
+  const n = records.length;
+  confirmModal(tr(`全${n}件をアーカイブしますか？`, `要归档全部${n}条记录吗？`), () => {
+    const moved = records.map(r => ({ ...r, archived: Date.now() }));
+    archive = archive.concat(moved).sort((a, b) => a.t - b.t);
+    if (!saveArchive()) { archive = archive.filter(r => !moved.includes(r)); return false }
+    records = []; save(); renderTable();
+  }, tr("アーカイブする", "归档"), tr(`${n}件をアーカイブしました`, `已归档${n}条`),
+  tr("一覧は空になります。右上のアーカイブボタンから日付・車名ごとに見られます。", "列表将清空。可从右上角的归档按钮按日期・车名查看。"));
+});
+function archiveModal() {
+  const gs = groups();
+  $("modal").innerHTML = `<div class="box"><b>${tr("アーカイブ", "归档")}</b>
+    ${gs.length ? `<div class="groups">${gs.map(g => {
+      const good = g.list.filter(r => r.sub === RATES[0]).length, bad = g.list.filter(r => r.sub === RATES[1]).length;
+      return `<button type="button" class="group${g.k === view ? " sel" : ""}" data-k="${esc(g.k)}"><b>${esc(g.date)}</b><span class="car">${esc(carLabel(g.car))}</span>
+        <span class="n">${tr(`${g.list.length}件`, `${g.list.length}条`)}<br><span class="g">👍${good}</span> <span class="b">👎${bad}</span></span></button>`;
+    }).join("")}</div>` : `<p class="empty">${tr("アーカイブはまだありません。一覧の「全アーカイブ」で記録をここに移せます。", "还没有归档。可用列表中的「全部归档」把记录移到这里。")}</p>`}
+    <div class="row" style="justify-content:flex-end">${view ? `<button class="btn" id="arCur">${tr("現在の記録に戻る", "返回当前记录")}</button>` : ""}<button class="btn ghost" id="arNo">${tr("閉じる", "关闭")}</button></div></div>`;
+  $("modal").hidden = false;
+  $("arNo").onclick = closeModal;
+  if (view) $("arCur").onclick = () => { closeModal(); showArchive(null) };
+  $("modal").querySelectorAll(".group").forEach(b => b.onclick = () => { closeModal(); showArchive(b.dataset.k) });
+}
+function showArchive(k) {
+  view = k; map.sel = null;
+  if (k && draft) { draft = null; openDetail() }
+  renderTable();
+  if (k) scrollTo({ top: scrollY + $("logView").getBoundingClientRect().top - document.querySelector("header").offsetHeight - 8, behavior: "smooth" });
+}
+function renderArchBar() {
+  const bar = $("archBar"), g = view && groups().find(x => x.k === view);
+  if (view && !g) view = null; // that group was deleted
+  $("archive").classList.toggle("on", !!view);
+  $("logTitle").textContent = view ? tr("アーカイブ", "归档") : tr("記録", "记录");
+  for (const id of ["import", "clearAll", "archiveAll"]) $(id).hidden = !!view;
+  $("delGroup").hidden = !view;
+  bar.hidden = !view; if (!view) { bar.innerHTML = ""; return }
+  bar.innerHTML = `<span>${tr("アーカイブを表示中", "正在查看归档")}<b>${esc(g.date)} · ${esc(carLabel(g.car))}</b></span><button class="btn sm" id="arBack">${tr("戻る", "返回")}</button>`;
+  $("arBack").onclick = () => showArchive(null);
+}
+$("archive").addEventListener("click", archiveModal);
+$("delGroup").addEventListener("click", () => {
+  const list = shown(); if (!list.length) return;
+  const g = groups().find(x => x.k === view);
+  confirmModal(tr(`${g.date} · ${carLabel(g.car)} のアーカイブ${list.length}件を削除しますか？（元に戻せません）`, `要删除 ${g.date} · ${carLabel(g.car)} 的${list.length}条归档吗？（无法恢复）`),
+    () => { archive = archive.filter(r => !list.includes(r)); saveArchive(); view = null; renderTable() });
+});
+
 /* ---- copy as TSV (in the current language; import accepts either) ---- */
 const HEAD = [["No", "No"], ["日付", "日期"], ["時刻", "时间"], ["車名", "车名"], ["分類", "分类"], ["評価", "评价"], ["シーン", "场景"],
   ["コメント", "备注"], ["高徳地図", "高德地图"]];
@@ -497,7 +588,7 @@ const cellText = (v) => String(v ?? "").replace(/[\t\r\n]+/g, " ").trim() || "-"
 // table rows (header first) shared by the clipboard copy and the Excel file
 function recordRows() {
   const head = HEAD.map(h => tr(h[0], h[1]));
-  return [head, ...records.map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.scene), r.memo, r.lat != null ? amapUrl(r) : ""])];
+  return [head, ...shown().map((r, i) => [i + 1, fmtDate(r.t), fmtTime(r.t), r.car, L(catOf(r.cat).name), L(r.sub), L(r.scene), r.memo, r.lat != null ? amapUrl(r) : ""])];
 }
 const toTsv = (rows) => rows.map(tsvLine).join("\n");
 async function copyText(text, okMsg) {
@@ -509,16 +600,17 @@ async function copyText(text, okMsg) {
   }
 }
 $("copy").addEventListener("click", () => {
-  if (!records.length) { toast(tr("記録がありません", "没有记录")); return }
+  const n = shown().length;
+  if (!n) { toast(tr("記録がありません", "没有记录")); return }
   $("modal").innerHTML = `<div class="box">
     <b>${tr("エクスポート", "导出")}</b>
-    <p class="note">${tr(`${records.length}件の記録を出力します。`, `导出${records.length}条记录。`)}</p>
+    <p class="note">${tr(`${n}件の記録を出力します。`, `导出${n}条记录。`)}</p>
     <button class="btn primary" id="exXlsx">${tr("Excelファイルをダウンロード", "下载Excel文件")}</button>
     <button class="btn" id="exCopy">${tr("クリップボードにコピー", "复制到剪贴板")}</button>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="exNo">${tr("閉じる", "关闭")}</button></div></div>`;
   $("modal").hidden = false;
   $("exNo").onclick = closeModal;
-  $("exCopy").onclick = () => { closeModal(); copyText(toTsv(recordRows()), tr(`${records.length}件をコピーしました。Excelに貼り付けできます`, `已复制${records.length}条，可粘贴到Excel`)) };
+  $("exCopy").onclick = () => { closeModal(); copyText(toTsv(recordRows()), tr(`${n}件をコピーしました。Excelに貼り付けできます`, `已复制${n}条，可粘贴到Excel`)) };
   $("exXlsx").onclick = () => { closeModal(); downloadXlsx() };
 });
 
@@ -585,13 +677,13 @@ function drawMap() {
   // selected pin last so it sits on top
   const pts = [...map.pts].sort((a, b) => (a.r.id === map.sel) - (b.r.id === map.sel));
   el.querySelector(".pins").innerHTML = pts.map(p => `<button type="button" class="pin${p.r.id === map.sel ? " sel" : ""}${thumbOf(p.r) ? " rated" : ""}" data-c="${p.r.cat}" data-id="${p.r.id}"
-    style="left:${(p.x * n - ox).toFixed(1)}px;top:${(p.y * n - oy).toFixed(1)}px" title="No.${records.indexOf(p.r) + 1} ${esc(L(catOf(p.r.cat).name))} ${esc(L(p.r.sub))}${p.r.memo ? " " + esc(p.r.memo) : ""}">${thumbOf(p.r)}</button>`).join("");
+    style="left:${(p.x * n - ox).toFixed(1)}px;top:${(p.y * n - oy).toFixed(1)}px" title="No.${shown().indexOf(p.r) + 1} ${esc(L(catOf(p.r.cat).name))} ${esc(L(p.r.sub))}${p.r.memo ? " " + esc(p.r.memo) : ""}">${thumbOf(p.r)}</button>`).join("");
 }
 function renderMapInfo() {
-  const r = records.find(x => x.id === map.sel), box = $("mapInfo");
+  const list = shown(), r = list.find(x => x.id === map.sel), box = $("mapInfo");
   box.hidden = !r; if (!r) return;
   const c = catOf(r.cat);
-  box.innerHTML = `<b>No.${records.indexOf(r) + 1}</b><span>${esc(L(c.name))}</span><span class="rate" data-v="${esc(r.sub)}">${esc(L(r.sub)) || "—"}</span>
+  box.innerHTML = `<b>No.${list.indexOf(r) + 1}</b><span>${esc(L(c.name))}</span><span class="rate" data-v="${esc(r.sub)}">${esc(L(r.sub)) || "—"}</span>
     <span>${fmtDate(r.t)} ${fmtTime(r.t)}</span>${r.car ? `<span>${esc(r.car)}</span>` : ""}${r.scene ? `<span>${esc(L(r.scene))}</span>` : ""}
     ${r.memo ? `<span>${esc(r.memo)}</span>` : ""}${mapLinks(r)}`;
 }
